@@ -7,5 +7,6 @@
 #define HEARTBEAT_INTERVAL_MS 60000
 #define SERVER_URL "http://your_server_url/heartbeat"
 #define SERIAL_NUMBER "ONGI-000"
+#define CONFIG_DEVICE_TOKEN "your_device_token"
 
 #endif // WIFI_CONFIG_EXAMPLE_H

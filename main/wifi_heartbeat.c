@@ -8,6 +8,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_http_client.h"
+#include "esp_crt_bundle.h"
 #include "wifi_config.h"
 
 static const char *TAG = "ongi-wifi-heartbeat";
@@ -97,10 +98,13 @@ static void send_heartbeat() {
         .method = HTTP_METHOD_POST,
         .event_handler = http_event_handler,
         .timeout_ms = 5000,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_header(client, "Device-Token", CONFIG_DEVICE_TOKEN);
+
     esp_http_client_set_post_field(client, json_payload, strlen(json_payload));
 
     esp_err_t err = esp_http_client_perform(client);
