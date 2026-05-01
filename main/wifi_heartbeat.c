@@ -9,7 +9,9 @@
 #include "freertos/event_groups.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
+
 #include "wifi_config.h"
+#include "wifi_heartbeat.h"
 
 static const char *TAG = "ongi-wifi-heartbeat";
 static EventGroupHandle_t wifi_event_group;
@@ -120,6 +122,10 @@ static void send_heartbeat() {
 // Heartbeat task
 void heartbeat_task(void *pvParameters) {
     while (1) {
+        // Wait for WiFi connection
+        xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
+        ESP_LOGI(TAG, "WiFi connected, sending heartbeat...");
+
         send_heartbeat();
         vTaskDelay(pdMS_TO_TICKS(HEARTBEAT_INTERVAL_MS));
     }

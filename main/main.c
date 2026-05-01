@@ -8,5 +8,12 @@ void app_main(void)
 {
     nvs_init();
     wifi_init();
-    xTaskCreate(heartbeat_task, "heartbeat_task", 4096, NULL, 5, NULL);
+    xTaskCreate(
+        heartbeat_task, 
+        "heartbeat_task", 
+        HEARTBEAT_TASK_STACK_SIZE, 
+        NULL, 
+        HEARTBEAT_TASK_PRIORITY, 
+        NULL
+    );
 }
