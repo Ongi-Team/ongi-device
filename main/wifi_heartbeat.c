@@ -122,6 +122,10 @@ static void send_heartbeat() {
 // Heartbeat task
 void heartbeat_task(void *pvParameters) {
     while (1) {
+        // Wait for WiFi connection
+        xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
+        ESP_LOGI(TAG, "WiFi connected, sending heartbeat...");
+
         send_heartbeat();
         vTaskDelay(pdMS_TO_TICKS(HEARTBEAT_INTERVAL_MS));
     }
