@@ -9,7 +9,6 @@
 #include "freertos/event_groups.h"
 #include "esp_http_client.h"
 #include "wifi_config.h"
-#include "wifi_config_example.h"
 
 static const char *TAG = "ongi-wifi-heartbeat";
 static EventGroupHandle_t wifi_event_group;
