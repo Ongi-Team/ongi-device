@@ -19,6 +19,12 @@
 # Log files
 *.log
 
+# Configuration files that may contain sensitive information
+*.env
+*.config
+*.ini
+*_config.h
+
 # Build artifacts and directories
 **/build/
 build/
@@ -80,3 +86,4 @@ Desktop.ini
 *.workspace # General workspace files, can be from various tools
 *.suo       # Visual Studio Solution User Options
 *.sln.docstates # Visual Studio
+.codex
