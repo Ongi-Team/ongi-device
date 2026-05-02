@@ -10,7 +10,15 @@
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
 
-#include "wifi_config.h"
+#ifdef CI_BUILD 
+    #include "wifi_config_example.h"
+    #include "http_config_example.h"
+#else
+    #include "wifi_config.h"
+    #include "http_config.h"
+#endif
+
+#include "storage_nvs.h"
 #include "wifi_heartbeat.h"
 
 static const char *TAG = "ongi-wifi-heartbeat";
@@ -96,7 +104,7 @@ static void send_heartbeat() {
     
     // Set up HTTP client configuration
     esp_http_client_config_t config = {
-        .url = SERVER_URL,
+        .url = HEARTBEAT_URL,
         .method = HTTP_METHOD_POST,
         .event_handler = http_event_handler,
         .timeout_ms = 5000,
