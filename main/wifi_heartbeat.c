@@ -27,16 +27,27 @@ const int WIFI_CONNECTED_BIT = BIT0;
 
 static esp_err_t build_heartbeat_payload(char *json_payload, size_t json_payload_size);
 static esp_err_t prepare_heartbeat_request(esp_http_client_handle_t client, const char *json_payload);
+static void cleanup_wifi_event_group(void);
 
 // WiFi event handler
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+    // Handle Wi-Fi and IP events
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
+        // Connect to Wi-Fi when the station starts
+        esp_err_t err = esp_wifi_connect();
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to connect to Wi-Fi: %s", esp_err_to_name(err));
+        }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        // Log disconnection and attempt to reconnect
         ESP_LOGW(TAG, "Disconnected from WiFi, retrying...");
-        esp_wifi_connect();
+        esp_err_t err = esp_wifi_connect();
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to reconnect to Wi-Fi: %s", esp_err_to_name(err));
+        }
         xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        // Log the obtained IP address and set the connected bit
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
@@ -44,19 +55,65 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 }
 
 // WiFi initialization
-void wifi_init() {
+esp_err_t wifi_init() {
+    // Create the event group to handle WiFi connection events
     wifi_event_group = xEventGroupCreate();
+    // Check if event group was created successfully
+    if (wifi_event_group == NULL) {
+        ESP_LOGE(TAG, "Failed to create Wi-Fi event group");
+        return ESP_ERR_NO_MEM;
+    }
 
-    ESP_ERROR_CHECK(esp_netif_init());    
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
+    // Initialize the TCP/IP stack and network interface
+    esp_err_t err = esp_netif_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize network interface: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
 
+    // Create the default event loop and Wi-Fi station network interface
+    err = esp_event_loop_create_default();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create default event loop: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
+
+    // Create default Wi-Fi station network interface and check for errors
+    esp_netif_t* sta_netif = esp_netif_create_default_wifi_sta();
+    if (sta_netif == NULL) {
+        ESP_LOGE(TAG, "Failed to create default Wi-Fi station network interface");
+        cleanup_wifi_event_group();
+        return ESP_ERR_NO_MEM;
+    }
+
+    // Initialize Wi-Fi with default configuration
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
+    // Initialize Wi-Fi and check for errors
+    err = esp_wifi_init(&cfg);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize Wi-Fi: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
 
+    // Register event handlers for Wi-Fi and IP events
+    err = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register Wi-Fi event handler: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
+    err = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register IP event handler: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
+
+    // Configure Wi-Fi connection settings
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = WIFI_SSID,
@@ -64,11 +121,32 @@ void wifi_init() {
         },
     };
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
+    // Set Wi-Fi mode to station and check for errors
+    err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set Wi-Fi mode: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
+
+    // Set Wi-Fi configuration and check for errors
+    err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set Wi-Fi configuration: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
+
+    // Start Wi-Fi and check for errors
+    err = esp_wifi_start();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start Wi-Fi: %s", esp_err_to_name(err));
+        cleanup_wifi_event_group();
+        return err;
+    }
 
     ESP_LOGI(TAG, "WiFi initialization completed");
+    return ESP_OK;
 }
 
 // HTTP event handler
@@ -201,4 +279,11 @@ static esp_err_t prepare_heartbeat_request(esp_http_client_handle_t client, cons
     }
 
     return ESP_OK;
+}
+
+static void cleanup_wifi_event_group(void) {
+    if (wifi_event_group != NULL) {
+        vEventGroupDelete(wifi_event_group);
+        wifi_event_group = NULL;
+    }
 }
