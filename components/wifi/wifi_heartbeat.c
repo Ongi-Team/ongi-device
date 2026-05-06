@@ -39,8 +39,13 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
             ESP_LOGW(TAG, "Failed to connect to Wi-Fi: %s", esp_err_to_name(err));
         }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t *disconnected_event = (wifi_event_sta_disconnected_t *) event_data;
+        xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
+
+        // TODO: Authentication failure -> new Event(User)
+
         // Log disconnection and attempt to reconnect
-        ESP_LOGW(TAG, "Disconnected from WiFi, retrying...");
+        ESP_LOGW(TAG, "Disconnected from WiFi (reason: %d), retrying...", disconnected_event->reason);
         esp_err_t err = esp_wifi_connect();
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "Failed to reconnect to Wi-Fi: %s", esp_err_to_name(err));
@@ -158,7 +163,7 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
 }
 
 // Send heartbeat to server
-static void send_heartbeat() {
+static esp_err_t send_heartbeat() {
     // Set up HTTP client configuration
     esp_http_client_config_t config = {
         .url = HEARTBEAT_URL,
@@ -173,7 +178,7 @@ static void send_heartbeat() {
     // Check if client was created successfully
     if (client == NULL) {
         ESP_LOGE(TAG, "Failed to initialize HTTP client");
-        return;
+        return ESP_FAIL;
     }
 
     // Build the heartbeat JSON payload
@@ -184,7 +189,7 @@ static void send_heartbeat() {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to build heartbeat payload");
         esp_http_client_cleanup(client);
-        return;
+        return ESP_FAIL;
     }
 
     // Prepare the heartbeat request and set HTTP headers
@@ -192,13 +197,15 @@ static void send_heartbeat() {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to prepare heartbeat request");
         esp_http_client_cleanup(client);
-        return;
+        return ESP_FAIL;
     }
 
     // Perform the HTTP request
     err = esp_http_client_perform(client);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error performing HTTP request");
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
     } else {
         int status_code = esp_http_client_get_status_code(client);
         ESP_LOGI(TAG, "HTTP request completed with status code: %d", status_code);
@@ -206,7 +213,25 @@ static void send_heartbeat() {
 
     // Clean up HTTP client resources
     esp_http_client_cleanup(client);
-}   
+    return ESP_OK;
+}
+
+static void send_heartbeat_with_retry(void){
+    const int max_retries = 3;
+    int retry_count = 0;
+
+    while (retry_count < max_retries) {
+        esp_err_t err = send_heartbeat();
+        if (err == ESP_OK) return; // Heartbeat sent successfully
+
+        retry_count++;
+        ESP_LOGW(TAG, "Heartbeat failed, retry %d/%d", retry_count, max_retries);
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Wait before retrying
+    }
+
+    // Log failure after max retries
+    ESP_LOGE(TAG, "Failed to send heartbeat after %d attempts", max_retries);
+}
 
 // Heartbeat task
 void heartbeat_task(void *pvParameters) {
@@ -215,7 +240,8 @@ void heartbeat_task(void *pvParameters) {
         xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
         ESP_LOGI(TAG, "WiFi connected, sending heartbeat...");
 
-        send_heartbeat();
+        // Send heartbeat with retry mechanism
+        send_heartbeat_with_retry();
         vTaskDelay(pdMS_TO_TICKS(HEARTBEAT_INTERVAL_MS));
     }
 }
