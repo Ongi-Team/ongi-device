@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "wifi_heartbeat.h"
 #include "storage_nvs.h"
+#include "rtc_driver.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -25,6 +26,10 @@ void app_main(void)
         return;
     }
 
+    // Initialize RTC and check for errors
+    const RtcDriver *rtc = rtc_get_driver();
+    ESP_ERROR_CHECK(rtc->init());
+
     // Create the heartbeat task
     BaseType_t heartbeat_task_created = xTaskCreate(
         heartbeat_task, 
@@ -34,6 +39,7 @@ void app_main(void)
         HEARTBEAT_TASK_PRIORITY, 
         NULL
     );
+
     if (heartbeat_task_created != pdPASS) {
         ESP_LOGE(TAG, "Failed to create heartbeat task");
         return;
