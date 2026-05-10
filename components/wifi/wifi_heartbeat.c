@@ -59,8 +59,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
 
-        const RtcDriver* rtc = rtc_get_driver();
-        esp_err_t rtc_ret = rtc->sync();
+        esp_err_t rtc_ret = rtc_driver_sync();
         if (rtc_ret != ESP_OK) {
             ESP_LOGW(TAG, "RTC NTP sync failed: %s", esp_err_to_name(rtc_ret));
         } else {

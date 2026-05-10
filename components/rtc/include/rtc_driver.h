@@ -13,8 +13,11 @@ typedef struct {
     bool (*is_synced)(void);
 } RtcDriver;
 
-// Abstract RTC driver interface
-const RtcDriver *rtc_get_driver(void);
+// Abstracted RTC driver interface
+esp_err_t rtc_driver_init(void);
+esp_err_t rtc_driver_sync(void);
+esp_err_t rtc_driver_get_time(time_t *now);
+bool rtc_driver_is_synced(void);
 
 // Utility function to log the current RTC time in a human-readable format
 esp_err_t rtc_log_current_time(void);

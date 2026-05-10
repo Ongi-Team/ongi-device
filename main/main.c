@@ -27,8 +27,7 @@ void app_main(void)
     }
 
     // Initialize RTC and check for errors
-    const RtcDriver *rtc = rtc_get_driver();
-    ESP_ERROR_CHECK(rtc->init());
+    ESP_ERROR_CHECK(rtc_driver_init());
 
     // Create the heartbeat task
     BaseType_t heartbeat_task_created = xTaskCreate(

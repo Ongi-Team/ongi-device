@@ -10,14 +10,27 @@ static const RtcDriver INTERNAL_RTC_DRIVER = {
     .is_synced = internal_rtc_is_synced
 };
 
-const RtcDriver *rtc_get_driver(void) {
-    return &INTERNAL_RTC_DRIVER;
+// Abstracted RTC driver interface implementation 
+esp_err_t rtc_driver_init(void) {
+    return INTERNAL_RTC_DRIVER.init();
+}
+
+esp_err_t rtc_driver_sync(void) {
+    return INTERNAL_RTC_DRIVER.sync();
+}
+
+esp_err_t rtc_driver_get_time(time_t *now) {
+    return INTERNAL_RTC_DRIVER.get_time(now);
+}
+
+bool rtc_driver_is_synced(void) {
+    return INTERNAL_RTC_DRIVER.is_synced();
 }
 
 esp_err_t rtc_log_current_time(void) {
     time_t now;
 
-    esp_err_t ret = rtc_get_driver()->get_time(&now);
+    esp_err_t ret = rtc_driver_get_time(&now);
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "Failed to get RTC time: %s", esp_err_to_name(ret));
         return ret;
