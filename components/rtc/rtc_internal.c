@@ -18,6 +18,11 @@ static void time_sync_callback(struct timeval *tv) {
 // Initialize the internal RTC
 esp_err_t internal_rtc_init(void) {
     s_synced = false;
+
+    // Set timezone to KST (UTC+9) and apply it
+    setenv("TZ", "KST-9", 1); 
+    tzset();
+
     return ESP_OK;
 }
 
