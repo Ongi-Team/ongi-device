@@ -56,7 +56,24 @@ void schedule_task(void *arg) {
 
     // Main loop to check and trigger scheduled slots
     while (1) {
-       rtc_log_current_time(); // Log current time for debugging
-       vTaskDelay(pdMS_TO_TICKS(1000)); 
-    }
+        time_t now;
+        rtc_driver_get_time(&now);
+
+        struct tm now_tm;
+        localtime_r(&now, &now_tm);
+
+        for (int i=0; i<SCHEDULE_SLOT_COUNT; i++) {
+            SlotEntry *slot = &slots[i];
+
+            if (slot->triggered) {
+                continue; // Skip already triggered slots
+            }
+
+            if (now_tm.tm_hour == slot->hour && now_tm.tm_min == slot->minute) {
+                ESP_LOGI(TAG, "Slot matched! slot = %d, time = %02d:%02d", slot->slot_id, slot->hour, slot->minute);
+                slot->triggered = true;
+            }
+        }    
+        vTaskDelay(pdMS_TO_TICKS(1000)); 
+    } 
 }

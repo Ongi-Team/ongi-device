@@ -11,6 +11,7 @@ static const RtcDriver INTERNAL_RTC_DRIVER = {
 };
 
 static TaskHandle_t s_rtc_sync_task_handle = NULL;
+static esp_err_t rtc_log_current_time(void);
 
 // Abstracted RTC driver interface implementation 
 esp_err_t rtc_driver_init(void) {
@@ -74,7 +75,7 @@ esp_err_t rtc_start_sync_task(void) {
     return ESP_OK;
 }
 
-esp_err_t rtc_log_current_time(void) {
+static esp_err_t rtc_log_current_time(void) {
     time_t now;
 
     esp_err_t ret = rtc_driver_get_time(&now);

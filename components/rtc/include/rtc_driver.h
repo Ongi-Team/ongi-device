@@ -24,7 +24,4 @@ bool rtc_driver_is_synced(void);
 // Task to start periodic RTC synchronization with NTP server
 esp_err_t rtc_start_sync_task(void);
 
-// Helper function to log the current RTC time for debugging purposes
-esp_err_t rtc_log_current_time(void);
-
 #endif // _RTC_DRIVER_H_
