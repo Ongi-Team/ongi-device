@@ -3,6 +3,7 @@
 #include "storage_nvs.h"
 #include "rtc_driver.h"
 #include "schedule.h"
+#include "dispense.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -43,6 +44,27 @@ void app_main(void)
     if (heartbeat_task_created != pdPASS) {
         ESP_LOGE(TAG, "Failed to create heartbeat task");
         return;
+    }
+
+    // Initialize dispense module and check for errors
+    err = dispense_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize dispense");
+        return;
+    }
+
+    // Create the dispense task
+    BaseType_t dispense_task_created = xTaskCreate(
+        dispense_task,
+        "dispense_task",
+        DISPENSE_TASK_STACK_SIZE,
+        NULL,
+        DISPENSE_TASK_PRIORITY,
+        NULL
+    );
+    if (dispense_task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create dispense task");
+        return; 
     }
 
     // Create the schedule task

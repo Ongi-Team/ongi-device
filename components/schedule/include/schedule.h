@@ -15,10 +15,6 @@ typedef struct {
     bool triggered;
 } SlotEntry;
 
-typedef struct {
-    uint8_t slot_id;
-} DispenseEvent;
-
 void schedule_task(void *arg);
 
 #endif  // SCHEDULE_H

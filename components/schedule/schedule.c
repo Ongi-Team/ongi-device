@@ -1,5 +1,6 @@
 #include "schedule.h"
 #include "rtc_driver.h"
+#include "dispense.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include <time.h>
@@ -71,6 +72,11 @@ void schedule_task(void *arg) {
 
             if (now_tm.tm_hour == slot->hour && now_tm.tm_min == slot->minute) {
                 ESP_LOGI(TAG, "Slot matched! slot = %d, time = %02d:%02d", slot->slot_id, slot->hour, slot->minute);
+                // Trigger the dispense event for the matched slot
+                esp_err_t err = dispense_enqueue(slot->slot_id);
+                if (err != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to enqueue dispense event for slot %d: %s", slot->slot_id, esp_err_to_name(err));
+                }
                 slot->triggered = true;
             }
         }    
