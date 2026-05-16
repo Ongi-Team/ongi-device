@@ -8,6 +8,7 @@
 
 static const char *TAG = "rtc_internal";
 static bool s_synced = false;
+static bool s_sntp_initialized = false;
 
 // Callback function called when time is synchronized
 static void time_sync_callback(struct timeval *tv) {
@@ -28,20 +29,30 @@ esp_err_t internal_rtc_init(void) {
 
 // Synchronize RTC with NTP server
 esp_err_t internal_rtc_sync(void) {
-    // Configure SNTP with the default settings and the specified NTP server
-    esp_sntp_config_t sntp_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-    // Set the synchronization callback
-    sntp_config.sync_cb = time_sync_callback;
+    // Initialize SNTP if not already initialized
+    if (!s_sntp_initialized) {
+        // Configure SNTP with the default settings and the specified NTP server
+        esp_sntp_config_t sntp_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+        sntp_config.sync_cb = time_sync_callback;
 
-    // Initialize SNTP with the specified configuration
-    esp_err_t ret = esp_netif_sntp_init(&sntp_config);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to initialize SNTP: %s", esp_err_to_name(ret));
+        // Initialize SNTP and check for errors
+        esp_err_t ret = esp_netif_sntp_init(&sntp_config);
+
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to initialize SNTP: %s", esp_err_to_name(ret));
+            return ret;
+        }
+        s_sntp_initialized = true;
+    }
+    
+    esp_err_t ret = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)); // Wait for synchronization to complete with a timeout
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "RTC synchronization failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
-    // Wait for synchronization to complete with a timeout
-    return esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000));
+    s_synced = true;
+    return ESP_OK;
 }
 
 esp_err_t internal_rtc_get_time(time_t *now) {
