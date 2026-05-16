@@ -31,6 +31,12 @@ static void init_test_slots(SlotEntry *slots, size_t count) {
     }
 }
 
+static void reset_trigger_flags(SlotEntry *slots, size_t count) {
+    for (int i=0; i<count; i++) {
+        slots[i].triggered = false;
+    }
+}
+
 esp_err_t schedule_init(SlotEntry *slots, size_t count) {
     if (slots == NULL || count == 0) {
         return ESP_ERR_INVALID_ARG;
@@ -54,6 +60,8 @@ void schedule_task(void *arg) {
     // Initialize schedule slots (for testing, we create slots at 1-minute intervals from current time)
     SlotEntry slots[SCHEDULE_SLOT_COUNT];
     schedule_init(slots, SCHEDULE_SLOT_COUNT);
+    
+    int last_day = -1; // To track day changes and reset triggered flags
 
     // Main loop to check and trigger scheduled slots
     while (1) {
@@ -62,6 +70,13 @@ void schedule_task(void *arg) {
 
         struct tm now_tm;
         localtime_r(&now, &now_tm);
+
+        if (now_tm.tm_mday != last_day) {
+            ESP_LOGI(TAG, "Day changed, resetting triggered flags");
+
+            reset_trigger_flags(slots, SCHEDULE_SLOT_COUNT);
+            last_day = now_tm.tm_mday;
+        }
 
         for (int i=0; i<SCHEDULE_SLOT_COUNT; i++) {
             SlotEntry *slot = &slots[i];
