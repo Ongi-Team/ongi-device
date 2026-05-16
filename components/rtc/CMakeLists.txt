@@ -1,15 +1,7 @@
 idf_component_register(
-    SRCS "wifi_heartbeat.c"
+    SRCS "rtc_driver.c" "rtc_internal.c"
     INCLUDE_DIRS "include"
-    REQUIRES storage
-        rtc
-        esp_wifi
-        esp_timer
-        esp_http_client
-        nvs_flash
-        mbedtls
-        freertos
-)
+    REQUIRES esp_netif)
 if(CI_BUILD)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CI_BUILD)
     target_compile_options(${COMPONENT_LIB} PRIVATE 

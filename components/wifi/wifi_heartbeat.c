@@ -10,6 +10,9 @@
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
 
+// RTC
+#include "rtc_driver.h"
+
 #ifdef CI_BUILD 
     #include "wifi_config_example.h"
     #include "http_config_example.h"
@@ -55,7 +58,13 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         // Log the obtained IP address and set the connected bit
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
+
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+
+        esp_err_t ret = rtc_start_sync_task();
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to start RTC sync task: %s", esp_err_to_name(ret));
+        }
     }
 }
 
