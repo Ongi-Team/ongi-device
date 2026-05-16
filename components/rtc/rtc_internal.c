@@ -7,7 +7,7 @@
 #include "esp_netif_sntp.h"
 
 static const char *TAG = "rtc_internal";
-static bool s_synced = false;
+static volatile bool s_synced = false;
 static bool s_sntp_initialized = false;
 
 // Callback function called when time is synchronized

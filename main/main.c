@@ -2,6 +2,7 @@
 #include "wifi_heartbeat.h"
 #include "storage_nvs.h"
 #include "rtc_driver.h"
+#include "schedule.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -42,5 +43,20 @@ void app_main(void)
     if (heartbeat_task_created != pdPASS) {
         ESP_LOGE(TAG, "Failed to create heartbeat task");
         return;
+    }
+
+    // Create the schedule task
+    BaseType_t schedule_task_created = xTaskCreate(
+        schedule_task,
+        "schedule_task",
+        SCHEDULE_TASK_STACK_SIZE,
+        NULL,
+        SCHEDULE_TASK_PRIORITY,
+        NULL
+    );
+
+    if (schedule_task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create schedule task");
+        return; 
     }
 }

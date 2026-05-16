@@ -11,7 +11,6 @@ static const RtcDriver INTERNAL_RTC_DRIVER = {
 };
 
 static TaskHandle_t s_rtc_sync_task_handle = NULL;
-static esp_err_t rtc_log_current_time(void);
 
 // Abstracted RTC driver interface implementation 
 esp_err_t rtc_driver_init(void) {
@@ -31,13 +30,22 @@ bool rtc_driver_is_synced(void) {
 }
 
 static void rtc_sync_task(void *arg) {
-    esp_err_t ret = rtc_driver_sync();
+    while (1) {
+        if (rtc_driver_is_synced()) {
+            ESP_LOGI(TAG, "RTC is already synchronized");
+            break;
+        }
 
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "RTC synchronized successfully");
-        rtc_log_current_time();
-    } else {
-        ESP_LOGW(TAG, "RTC synchronization failed: %s", esp_err_to_name(ret));
+        esp_err_t ret = rtc_driver_sync();
+
+        if (ret == ESP_OK && rtc_driver_is_synced()) {
+            ESP_LOGI(TAG, "RTC synchronized successfully");
+            rtc_log_current_time();
+            break;
+        } 
+    
+        ESP_LOGW(TAG, "RTC sync not completed, retrying in 10 seconds...");
+        vTaskDelay(pdMS_TO_TICKS(10000)); 
     }
 
     s_rtc_sync_task_handle = NULL;
@@ -66,7 +74,7 @@ esp_err_t rtc_start_sync_task(void) {
     return ESP_OK;
 }
 
-static esp_err_t rtc_log_current_time(void) {
+esp_err_t rtc_log_current_time(void) {
     time_t now;
 
     esp_err_t ret = rtc_driver_get_time(&now);

@@ -5,6 +5,8 @@
 #include <stdbool.h>
 
 #define SCHEDULE_SLOT_COUNT 8
+#define SCHEDULE_TASK_STACK_SIZE 4096
+#define SCHEDULE_TASK_PRIORITY 5
 
 typedef struct {
     uint8_t slot_id;
@@ -17,7 +19,6 @@ typedef struct {
     uint8_t slot_id;
 } DispenseEvent;
 
-// SlotEntry Test
-void init_test_slots(SlotEntry *slots, size_t count);
+void schedule_task(void *arg);
 
 #endif  // SCHEDULE_H
