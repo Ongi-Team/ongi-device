@@ -42,7 +42,7 @@ void dispense_task(void *arg) {
     while (1) {
         if (xQueueReceive(s_dispense_queue, &event, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Processing dispense event for slot ID: %d", event.slot_id);
-        
+
             // TODO: servo motor control
         }
     }

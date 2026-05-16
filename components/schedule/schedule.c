@@ -87,12 +87,15 @@ void schedule_task(void *arg) {
 
             if (now_tm.tm_hour == slot->hour && now_tm.tm_min == slot->minute) {
                 ESP_LOGI(TAG, "Slot matched! slot = %d, time = %02d:%02d", slot->slot_id, slot->hour, slot->minute);
-                // Trigger the dispense event for the matched slot
+                
+                // Enqueue dispense event for the matched slot
                 esp_err_t err = dispense_enqueue(slot->slot_id);
-                if (err != ESP_OK) {
+                if (err == ESP_OK) {
+                    ESP_LOGI(TAG, "Dispense event enqueued for slot %d", slot->slot_id);
+                    slot->triggered = true; // Mark slot as triggered to prevent retriggering within the same minute
+                } else {
                     ESP_LOGE(TAG, "Failed to enqueue dispense event for slot %d: %s", slot->slot_id, esp_err_to_name(err));
                 }
-                slot->triggered = true;
             }
         }    
         vTaskDelay(pdMS_TO_TICKS(1000)); 
