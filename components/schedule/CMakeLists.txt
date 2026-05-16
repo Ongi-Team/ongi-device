@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS ""
+    SRCS "schedule.c" 
     INCLUDE_DIRS "include"
     REQUIRES )
 if(CI_BUILD)
