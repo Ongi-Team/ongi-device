@@ -5,6 +5,8 @@
 #include <time.h>
 #include "esp_err.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 typedef struct {
     esp_err_t (*init)(void);
@@ -19,7 +21,7 @@ esp_err_t rtc_driver_sync(void);
 esp_err_t rtc_driver_get_time(time_t *now);
 bool rtc_driver_is_synced(void);
 
-// Utility function to log the current RTC time in a human-readable format
-esp_err_t rtc_log_current_time(void);
+// Task to start periodic RTC synchronization with NTP server
+esp_err_t rtc_start_sync_task(void);
 
 #endif // _RTC_DRIVER_H_
