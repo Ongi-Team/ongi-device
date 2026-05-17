@@ -3,6 +3,6 @@
 
 #include "intake_detector.h"
 
-const IntakeDetector *intake_detector_get_default(void);
+const IntakeDetector *get_default_intake_detector(void);
 
 #endif // INTAKE_DETECTOR_FACTORY_H
