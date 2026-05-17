@@ -1,0 +1,4 @@
+#ifndef INTAKE_DETECTOR_H
+#define INTAKE_DETECTOR_H
+
+#endif // INTAKE_DETECTOR_H

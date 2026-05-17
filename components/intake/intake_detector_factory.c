@@ -1,0 +1,1 @@
+#include "intake_detector_factory.h"
