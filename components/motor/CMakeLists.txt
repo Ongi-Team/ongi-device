@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS "motor.c" "servo_motor.c"
     INCLUDE_DIRS "include"
-    REQUIRES dispense)
+    REQUIRES dispense intake)
 if(CI_BUILD)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CI_BUILD)
     target_compile_options(${COMPONENT_LIB} PRIVATE 

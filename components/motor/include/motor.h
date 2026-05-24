@@ -3,7 +3,7 @@
 
 #include "freertos/FreeRTOS.h"
 
-#define MOTOR_TASK_STACK_SIZE 1024
+#define MOTOR_TASK_STACK_SIZE 4096
 #define MOTOR_TASK_PRIORITY 5
 
 void motor_task(void *arg);

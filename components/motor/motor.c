@@ -1,6 +1,7 @@
 #include "motor.h"
 #include "servo_motor.h"
 #include "dispense.h"
+#include "intake_detector_factory.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 
@@ -26,6 +27,13 @@ void motor_task(void *arg) {
         return;
     }
 
+    const IntakeDetector *detector = get_default_intake_detector();
+    if (detector == NULL) {
+        ESP_LOGE(TAG, "intake detector is not initialized");
+        vTaskDelete(NULL);
+        return;
+    }
+
     while (1) {
         DispenseEvent event;
 
@@ -34,7 +42,21 @@ void motor_task(void *arg) {
 
             // Servo Sequence
             servo_motor_open(event.slot_id);
-            vTaskDelay(pdMS_TO_TICKS(3000));
+
+            // Intake 
+            IntakeResult result = detector->wait(event.slot_id, 3000);
+            switch (result) {
+                case INTAKE_DETECTED:
+                    ESP_LOGI(TAG, "Intake detected for slot ID: %d", event.slot_id);
+                    break;
+                case INTAKE_TIMEOUT:
+                    ESP_LOGI(TAG, "Intake timeout for slot ID: %d", event.slot_id);
+                    break;
+                default:
+                    ESP_LOGW(TAG, "Unknown intake result for slot ID: %d", event.slot_id);
+                    break;
+            }
+
             servo_motor_close(event.slot_id);
         }
     }
