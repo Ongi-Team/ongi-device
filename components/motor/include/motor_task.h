@@ -1,5 +1,5 @@
-#ifndef MOTOR_H
-#define MOTOR_H
+#ifndef MOTOR_TASK_H
+#define MOTOR_TASK_H
 
 #include "freertos/FreeRTOS.h"
 
@@ -9,4 +9,4 @@
 void motor_task(void *arg);
 BaseType_t create_motor_task(void);
 
-#endif // MOTOR_H
+#endif // MOTOR_TASK_H

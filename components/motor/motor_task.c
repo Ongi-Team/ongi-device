@@ -1,6 +1,6 @@
-#include "motor.h"
-#include "servo_motor.h"
+#include "motor_task.h"
 #include "dispense.h"
+#include "servo_driver_factory.h"
 #include "intake_detector_factory.h"
 #include "esp_log.h"
 #include "freertos/task.h"
@@ -34,6 +34,13 @@ void motor_task(void *arg) {
         return;
     }
 
+    const ServoDriver *servo = get_default_servo_driver();
+    if (servo == NULL || servo->open == NULL || servo->close == NULL) {
+        ESP_LOGE(TAG, "servo driver is not initialized");
+        vTaskDelete(NULL);
+        return;
+    }
+
     while (1) {
         DispenseEvent event;
 
@@ -41,7 +48,7 @@ void motor_task(void *arg) {
             ESP_LOGI(TAG, "Processing dispense event for slot ID: %d", event.slot_id);
 
             // Servo Sequence
-            servo_motor_open(event.slot_id);
+            servo->open(event.slot_id);
 
             // Intake 
             IntakeResult result = detector->wait(event.slot_id, pdMS_TO_TICKS(3000));
@@ -57,7 +64,7 @@ void motor_task(void *arg) {
                     break;
             }
 
-            servo_motor_close(event.slot_id);
+            servo->close(event.slot_id);
         }
     }
 }
