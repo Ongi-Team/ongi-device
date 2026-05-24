@@ -12,7 +12,7 @@ typedef enum {
 
 typedef struct {
     esp_err_t (*init)(void);
-    IntakeResult (*wait)(TickType_t timeout_ticks);
+    IntakeResult (*wait)(uint8_t slot_id, TickType_t timeout_ticks);
 } IntakeDetector;
 
 #endif // INTAKE_DETECTOR_H

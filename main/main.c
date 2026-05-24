@@ -4,6 +4,7 @@
 #include "rtc_driver.h"
 #include "schedule.h"
 #include "dispense.h"
+#include "motor.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -52,19 +53,13 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to initialize dispense");
         return;
     }
+    
+    // Create the motor task
+    BaseType_t motor_task_created = create_motor_task();
 
-    // Create the dispense task
-    BaseType_t dispense_task_created = xTaskCreate(
-        dispense_task,
-        "dispense_task",
-        DISPENSE_TASK_STACK_SIZE,
-        NULL,
-        DISPENSE_TASK_PRIORITY,
-        NULL
-    );
-    if (dispense_task_created != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create dispense task");
-        return; 
+    if (motor_task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create motor task");
+        return;
     }
 
     // Create the schedule task

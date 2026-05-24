@@ -31,6 +31,9 @@ bool rtc_driver_is_synced(void) {
 }
 
 static void rtc_sync_task(void *arg) {
+    // delay before SNTP sync
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    
     while (1) {
         if (rtc_driver_is_synced()) {
             ESP_LOGI(TAG, "RTC is already synchronized");
@@ -45,8 +48,8 @@ static void rtc_sync_task(void *arg) {
             break;
         } 
     
-        ESP_LOGW(TAG, "RTC sync not completed, retrying in 10 seconds...");
-        vTaskDelay(pdMS_TO_TICKS(10000)); 
+        ESP_LOGW(TAG, "RTC sync not completed, retrying in 30 seconds...");
+        vTaskDelay(pdMS_TO_TICKS(30000)); 
     }
 
     s_rtc_sync_task_handle = NULL;

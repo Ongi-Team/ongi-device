@@ -45,7 +45,7 @@ esp_err_t internal_rtc_sync(void) {
         s_sntp_initialized = true;
     }
     
-    esp_err_t ret = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)); // Wait for synchronization to complete with a timeout
+    esp_err_t ret = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(30000)); // Wait for synchronization to complete with a timeout
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "RTC synchronization failed: %s", esp_err_to_name(ret));
         return ret;
