@@ -4,7 +4,7 @@
 #include "rtc_driver.h"
 #include "schedule.h"
 #include "dispense.h"
-#include "motor.h"
+#include "motor_task.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
