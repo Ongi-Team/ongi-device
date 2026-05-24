@@ -47,3 +47,7 @@ void dispense_task(void *arg) {
         }
     }
 }
+
+QueueHandle_t get_dispense_queue(void) {
+    return s_dispense_queue;
+}

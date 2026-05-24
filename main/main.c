@@ -4,6 +4,7 @@
 #include "rtc_driver.h"
 #include "schedule.h"
 #include "dispense.h"
+#include "motor.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -50,6 +51,14 @@ void app_main(void)
     err = dispense_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize dispense");
+        return;
+    }
+    
+    // Create the motor task
+    BaseType_t motor_task_created = create_motor_task();
+
+    if (motor_task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create motor task");
         return;
     }
 

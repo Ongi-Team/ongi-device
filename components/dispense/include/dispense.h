@@ -15,10 +15,10 @@ typedef struct {
     uint8_t slot_id;
 } DispenseEvent;
 
-extern QueueHandle_t dispense_event_queue;
-
 esp_err_t dispense_init(void);
 esp_err_t dispense_enqueue(uint8_t slot_id);
 void dispense_task(void *arg);
+
+QueueHandle_t get_dispense_queue(void);
 
 #endif // DISPENSE_H
