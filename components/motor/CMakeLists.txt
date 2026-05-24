@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "dummy_servo_driver.c" "motor.c" "servo_motor.c"
+    SRCS "servo_driver_factory.c" "dummy_servo_driver.c" "motor.c" "servo_motor.c"
     INCLUDE_DIRS "include"
     REQUIRES dispense intake)
 if(CI_BUILD)
