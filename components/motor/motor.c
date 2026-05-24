@@ -44,7 +44,7 @@ void motor_task(void *arg) {
             servo_motor_open(event.slot_id);
 
             // Intake 
-            IntakeResult result = detector->wait(event.slot_id, 3000);
+            IntakeResult result = detector->wait(event.slot_id, pdMS_TO_TICKS(3000));
             switch (result) {
                 case INTAKE_DETECTED:
                     ESP_LOGI(TAG, "Intake detected for slot ID: %d", event.slot_id);
