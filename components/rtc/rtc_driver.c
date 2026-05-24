@@ -45,8 +45,8 @@ static void rtc_sync_task(void *arg) {
             break;
         } 
     
-        ESP_LOGW(TAG, "RTC sync not completed, retrying in 10 seconds...");
-        vTaskDelay(pdMS_TO_TICKS(10000)); 
+        ESP_LOGW(TAG, "RTC sync not completed, retrying in 30 seconds...");
+        vTaskDelay(pdMS_TO_TICKS(30000)); 
     }
 
     s_rtc_sync_task_handle = NULL;

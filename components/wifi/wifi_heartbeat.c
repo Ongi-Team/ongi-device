@@ -61,6 +61,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
 
+        vTaskDelay(pdMS_TO_TICKS(2000));
         esp_err_t ret = rtc_start_sync_task();
         if (ret != ESP_OK) {
             ESP_LOGW(TAG, "Failed to start RTC sync task: %s", esp_err_to_name(ret));
