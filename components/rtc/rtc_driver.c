@@ -31,6 +31,9 @@ bool rtc_driver_is_synced(void) {
 }
 
 static void rtc_sync_task(void *arg) {
+    // delay before SNTP sync
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    
     while (1) {
         if (rtc_driver_is_synced()) {
             ESP_LOGI(TAG, "RTC is already synchronized");
