@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "motor.c"
+    SRCS "motor.c" "servo_motor.c"
     INCLUDE_DIRS "include"
     REQUIRES dispense)
 if(CI_BUILD)

@@ -1,4 +1,5 @@
 #include "motor.h"
+#include "servo_motor.h"
 #include "dispense.h"
 #include "esp_log.h"
 #include "freertos/task.h"
@@ -30,6 +31,11 @@ void motor_task(void *arg) {
 
         if (xQueueReceive(dispense_queue, &event, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Processing dispense event for slot ID: %d", event.slot_id);
+
+            // Servo Sequence
+            servo_motor_open(event.slot_id);
+            vTaskDelay(pdMS_TO_TICKS(3000));
+            servo_motor_close(event.slot_id);
         }
     }
 }
