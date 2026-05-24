@@ -62,20 +62,6 @@ void app_main(void)
         return;
     }
 
-    // Create the dispense task
-    BaseType_t dispense_task_created = xTaskCreate(
-        dispense_task,
-        "dispense_task",
-        DISPENSE_TASK_STACK_SIZE,
-        NULL,
-        DISPENSE_TASK_PRIORITY,
-        NULL
-    );
-    if (dispense_task_created != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create dispense task");
-        return; 
-    }
-
     // Create the schedule task
     BaseType_t schedule_task_created = xTaskCreate(
         schedule_task,

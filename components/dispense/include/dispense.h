@@ -17,7 +17,6 @@ typedef struct {
 
 esp_err_t dispense_init(void);
 esp_err_t dispense_enqueue(uint8_t slot_id);
-void dispense_task(void *arg);
 
 QueueHandle_t get_dispense_queue(void);
 

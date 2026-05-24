@@ -34,20 +34,6 @@ esp_err_t dispense_enqueue(uint8_t slot_id) {
     return ESP_OK;
 }
 
-void dispense_task(void *arg) {
-    DispenseEvent event;
-
-    ESP_LOGI(TAG, "Dispense task started");
-
-    while (1) {
-        if (xQueueReceive(s_dispense_queue, &event, portMAX_DELAY) == pdTRUE) {
-            ESP_LOGI(TAG, "Processing dispense event for slot ID: %d", event.slot_id);
-
-            // TODO: servo motor control
-        }
-    }
-}
-
 QueueHandle_t get_dispense_queue(void) {
     return s_dispense_queue;
 }
