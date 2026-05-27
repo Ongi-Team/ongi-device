@@ -41,6 +41,8 @@ description: Issue, branch, commit, push, and pull request workflow rules for th
 - 커밋 단위도 작게 가져간다. 이슈 하나에 여러 커밋이 있어도 괜찮으며, 각 커밋은 가능한 한 빌드 가능한 최소 단위여야 한다.
 - 새 이슈를 만들 때 작업이 크면 바로 구현 이슈 하나로 만들지 말고, 메인 이슈와 서브 이슈로 나눌 수 있는지 먼저 판단한다.
 - 서브 이슈 TODO는 각 항목이 로그 검증 또는 작은 코드 diff로 닫힐 수 있게 작성한다.
+- 이슈 assignee는 반드시 `jaeunda`로 설정한다.
+- GitHub Issue Types가 사용 가능하면 이슈 Type을 작업 성격에 맞게 설정한다. Issue Types를 사용할 수 없으면 기존 label로 같은 의미를 표시한다.
 - 라벨은 기존 관례를 따른다.
   - `Feat`, `Refactor`: `enhancement`
   - `Fix`, `[Bug]`: `bug`
@@ -161,6 +163,8 @@ Closes #이슈번호
 
 - PR 제목은 이슈 제목 스타일과 맞춘다: `Feat: ...`, `Fix: ...`, `Refactor: ...`, `Docs: ...`.
 - `Related Issue`에는 기본적으로 `Closes #번호`를 쓴다. 여러 이슈를 닫으면 줄을 나눠 모두 적는다.
+- PR assignee는 반드시 `jaeunda`로 설정한다.
+- PR에는 작업 성격에 맞는 label을 붙인다. 보통 연결된 이슈의 label과 같은 값을 사용한다.
 - `Description`에는 구현한 동작을 요약한다.
 - `Review Point`에는 이 리포지토리에서 위험한 지점을 우선 적는다.
   - FreeRTOS task/queue/event 동시성
@@ -205,10 +209,12 @@ Closes #이슈번호
 2. 작업이 PR 하나로 로그 검증 가능한 최소 단위인지 판단한다.
 3. 작업이 크면 메인 이슈와 서브 이슈로 나누고, 메인 이슈 TODO에 서브 이슈 번호가 들어가도록 구성한다.
 4. 타입과 라벨을 기존 패턴에 맞춘다.
-5. GitHub 이슈를 생성한다.
-6. 생성된 이슈 번호를 사용해 브랜치명을 정한다. 여러 이슈가 있으면 실제로 작업할 서브 이슈 번호를 브랜치명에 사용한다.
-7. 깨끗한 최신 `main`에서 브랜치를 생성한다.
-8. 브랜치명, 연결된 메인/서브 이슈, 로그 검증 방향을 사용자에게 알려준다.
+5. 이슈 assignee를 `jaeunda`로 설정한다.
+6. GitHub Issue Types가 사용 가능하면 Type을 설정하고, 사용할 수 없으면 기존 label로 대체한다.
+7. GitHub 이슈를 생성한다.
+8. 생성된 이슈 번호를 사용해 브랜치명을 정한다. 여러 이슈가 있으면 실제로 작업할 서브 이슈 번호를 브랜치명에 사용한다.
+9. 깨끗한 최신 `main`에서 브랜치를 생성한다.
+10. 브랜치명, 연결된 메인/서브 이슈, 로그 검증 방향을 사용자에게 알려준다.
 
 ### 2. 사용자가 구현 중 방향을 물어보는 경우
 
@@ -239,10 +245,12 @@ Closes #이슈번호
 4. 필요하면 빌드/검증 결과를 확인하되, 사용자가 직접 작업한 변경을 임의로 고치지 않는다.
 5. 브랜치를 push한다.
 6. PR이 없을 때만 PR 템플릿에 맞춰 새 PR 본문을 작성한다.
-7. `Etc`에는 `Verification Criteria`와 `Verification Evidence`를 구분해서 적는다.
-8. 실제 스크린샷 파일이나 이미지 첨부는 사용자가 직접 반영할 수 있으므로, 에이전트는 `Verification Criteria`에 검증 완료 조건을 명확히 남긴다.
-9. 스크린샷이 아직 없으면 `Verification Evidence`에 첨부 예정 메모를 남긴다.
-10. PR URL과 요약, 검증 여부를 사용자에게 알려준다.
+7. PR assignee를 `jaeunda`로 설정한다.
+8. PR에는 연결된 이슈에 맞는 label을 붙인다.
+9. `Etc`에는 `Verification Criteria`와 `Verification Evidence`를 구분해서 적는다.
+10. 실제 스크린샷 파일이나 이미지 첨부는 사용자가 직접 반영할 수 있으므로, 에이전트는 `Verification Criteria`에 검증 완료 조건을 명확히 남긴다.
+11. 스크린샷이 아직 없으면 `Verification Evidence`에 첨부 예정 메모를 남긴다.
+12. PR URL과 요약, 검증 여부를 사용자에게 알려준다.
 
 ### 5. 사용자가 이미 열린 PR의 리뷰 반영을 요청한 경우
 
