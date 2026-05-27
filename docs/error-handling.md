@@ -1,5 +1,17 @@
 # Error Handling Guidelines
 
+## Document Scope And Maintenance
+
+- This document keeps project-specific error handling principles that were learned from actual PRs, issues, reviews, or reproduced failures.
+- Do not copy every general ESP-IDF rule here. Keep general analysis and review checklists in `.agent/skills/firmware-review-guidance/SKILL.md`.
+- Add a principle here only when it is expected to stay useful across future firmware changes.
+- Keep each topic's `#### Sources` section updated with the PR that introduced or changed the principle.
+- If a principle becomes outdated, revise it with the PR that changed the behavior instead of silently deleting it.
+
+#### Sources
+
+- [#9] Docs: Add documentation skill
+
 ## General Principles
 
 - Do not ignore return values from ESP-IDF, FreeRTOS, HTTP, Wi-Fi, or NVS APIs.
