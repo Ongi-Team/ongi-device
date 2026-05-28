@@ -18,7 +18,7 @@ typedef enum {
 typedef struct {
     uint8_t slot_id;
     MedicationStatus status;
-    int64_t timestamp;
+    int64_t timestamp; // Unix epoch time in milliseconds, or 0 if time is not synced
 } MedicationEvent;
 
 esp_err_t event_queue_init(void);

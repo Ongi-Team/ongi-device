@@ -4,10 +4,13 @@
 #include "servo_driver_factory.h"
 #include "intake_detector_factory.h"
 #include "esp_log.h"
-#include "esp_timer.h"
+#include <sys/time.h>
+#include <time.h>
 #include "freertos/task.h"
 
 static const char *TAG = "motor";
+static int64_t get_timestamp_ms(void);
+static bool is_time_synced(void);
 
 BaseType_t create_motor_task(void) {
     return xTaskCreate(
@@ -78,7 +81,7 @@ void motor_task(void *arg) {
                 MedicationEvent medication_event = {
                     .slot_id = event.slot_id,
                     .status = status,
-                    .timestamp = esp_timer_get_time() / 1000 // Convert microseconds to milliseconds
+                    .timestamp = is_time_synced() ? get_timestamp_ms() : 0
                 };
                 
                 esp_err_t err = event_queue_push(&medication_event);
@@ -91,4 +94,16 @@ void motor_task(void *arg) {
             servo->close(event.slot_id);
         }
     }
+}
+static bool is_time_synced(void) {
+    time_t now;
+    time(&now);
+
+    return now > 1704067200; // Check if current time is after Jan 1, 2024
+}
+static int64_t get_timestamp_ms(void) {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+
+    return (int64_t)now.tv_sec * 1000 + now.tv_usec / 1000;
 }
