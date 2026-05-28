@@ -8,6 +8,25 @@
 
 ---
 
+## Build / Validation
+
+- Before running `idf.py`, source ESP-IDF first:
+  `. ~/.espressif/v6.0/esp-idf/export.sh`
+- Use the same build command as CI when validating firmware changes:
+  `idf.py -DCI_BUILD=1 build`
+
+---
+
+## Pull Request Rules
+
+- All PR titles and descriptions MUST be written in English.
+- PR review points MUST describe the implemented logic reviewers should inspect.
+- Do NOT frame speculative risks as PR review points. Potential issues belong in code review findings, not in the author's PR description.
+- In the PR `Etc` section, add notes for behavior that should be verified through device logs.
+- Do NOT attach log screenshots yourself; the user will add log screenshots directly to the PR.
+
+---
+
 ## Review Priorities
 
 ### Critical
