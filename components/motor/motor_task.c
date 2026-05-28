@@ -77,6 +77,8 @@ void motor_task(void *arg) {
                     break;
             }
 
+            servo->close(event.slot_id);
+
             if (is_event_pushed) {
                 MedicationEvent medication_event = {
                     .slot_id = event.slot_id,
@@ -85,16 +87,14 @@ void motor_task(void *arg) {
                 };
 
                 esp_err_t err = event_queue_push(&medication_event);
-                ESP_LOGI(TAG, "Pushed %s event for slot ID: %d to event queue",
-                    status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
-
                 if (err != ESP_OK) {
                     ESP_LOGE(TAG, "Failed to push %s event for slot ID: %d",
                         status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
+                } else {
+                    ESP_LOGI(TAG, "Pushed %s event for slot ID: %d to event queue",
+                        status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
                 }
             }
-
-            servo->close(event.slot_id);
         }
     }
 }
