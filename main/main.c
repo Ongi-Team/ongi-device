@@ -5,6 +5,7 @@
 #include "schedule.h"
 #include "dispense.h"
 #include "motor_task.h"
+#include "event_queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -51,6 +52,13 @@ void app_main(void)
     err = dispense_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize dispense");
+        return;
+    }
+
+    // Initialize event queue and check for errors
+    err = event_queue_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize event queue");
         return;
     }
     

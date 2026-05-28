@@ -35,6 +35,26 @@ Codex와 Claude 모두 같은 내용을 기준으로 작업해야 하며, Claude
 
 ---
 
+## Build / Validation
+
+- Before running `idf.py`, source ESP-IDF first:
+  `. ~/.espressif/v6.0/esp-idf/export.sh`
+- Use the same build command as CI when validating firmware changes:
+  `idf.py -DCI_BUILD=1 build`
+
+---
+
+## Pull Request Rules
+
+- All PR titles and descriptions MUST be written in English.
+- Keep each PR section concise: `Description`, `Review Point`, and `Etc` should each usually stay within 5 lines.
+- PR review points MUST describe the implemented logic reviewers should inspect.
+- Do NOT frame speculative risks as PR review points. Potential issues belong in code review findings, not in the author's PR description.
+- In the PR `Etc` section, add notes for behavior that should be verified through device logs.
+- Do NOT attach log screenshots yourself; the user will add log screenshots directly to the PR.
+
+---
+
 ## Review Priorities
 
 ### Critical
