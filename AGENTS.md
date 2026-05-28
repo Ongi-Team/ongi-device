@@ -20,6 +20,7 @@
 ## Pull Request Rules
 
 - All PR titles and descriptions MUST be written in English.
+- Keep each PR section concise: `Description`, `Review Point`, and `Etc` should each usually stay within 5 lines.
 - PR review points MUST describe the implemented logic reviewers should inspect.
 - Do NOT frame speculative risks as PR review points. Potential issues belong in code review findings, not in the author's PR description.
 - In the PR `Etc` section, add notes for behavior that should be verified through device logs.
