@@ -121,6 +121,15 @@ esp_err_t event_sender_send(const MedicationEvent *event) {
     }
 
     int status_code = esp_http_client_get_status_code(client);
+    if (status_code < 200 || status_code >= 300) {
+        ESP_LOGE(TAG, "Medication event POST failed: http_status=%d slot=%u status=%s",
+                 status_code,
+                 (unsigned int)event->slot_id,
+                 medication_status_to_string(event->status));
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
     ESP_LOGI(TAG, "Medication event POST completed: http_status=%d", status_code);
 
     esp_http_client_cleanup(client);
