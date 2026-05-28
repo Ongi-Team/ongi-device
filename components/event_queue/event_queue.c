@@ -5,6 +5,12 @@ static const char *TAG = "event_queue";
 static QueueHandle_t s_event_queue = NULL;
 
 esp_err_t event_queue_init(void) {
+    // Check if the queue is already initialized
+    if (s_event_queue != NULL) {
+        ESP_LOGW(TAG, "Event queue is already initialized");
+        return ESP_OK;
+    }
+
     s_event_queue = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(MedicationEvent));
 
     if (s_event_queue == NULL) {
