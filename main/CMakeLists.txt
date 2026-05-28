@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS "main.c"
     INCLUDE_DIRS "."
-    REQUIRES storage wifi rtc schedule dispense motor)
+    REQUIRES storage wifi rtc schedule dispense motor event_queue)
 
 if(CI_BUILD)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CI_BUILD)
