@@ -7,6 +7,7 @@ static const char *TAG = "event_queue";
 static QueueHandle_t s_event_queue = NULL;
 static TaskHandle_t s_event_queue_task = NULL;
 
+static void log_event_queue_stack_high_water(const char *phase);
 static esp_err_t requeue_transient_event(const MedicationEvent *event);
 static esp_err_t send_event_with_retry(const MedicationEvent *event);
 static void event_queue_task(void *arg);
@@ -63,6 +64,13 @@ esp_err_t event_queue_push(const MedicationEvent *event) {
     return ESP_OK;
 }
 
+static void log_event_queue_stack_high_water(const char *phase) {
+    UBaseType_t high_water_words = uxTaskGetStackHighWaterMark(NULL);
+    ESP_LOGI(TAG, "event_queue_task stack high water: phase=%s free_words=%u",
+             phase,
+             (unsigned int)high_water_words);
+}
+
 static esp_err_t requeue_transient_event(const MedicationEvent *event) {
     if (s_event_queue == NULL) {
         return ESP_ERR_INVALID_STATE;
@@ -117,6 +125,8 @@ static esp_err_t send_event_with_retry(const MedicationEvent *event) {
 static void event_queue_task(void *arg) {
     MedicationEvent event;
 
+    log_event_queue_stack_high_water("start");
+
     while (1) {
         if (xQueueReceive(s_event_queue, &event, portMAX_DELAY) == pdTRUE) {
             esp_err_t err = send_event_with_retry(&event);
@@ -133,6 +143,7 @@ static void event_queue_task(void *arg) {
 
                 ESP_LOGE(TAG, "Failed to send event: slot_id=%d", event.slot_id);
             }
+            log_event_queue_stack_high_water("after_send");
         }
     }
 }
