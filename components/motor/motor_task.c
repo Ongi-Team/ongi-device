@@ -57,7 +57,7 @@ void motor_task(void *arg) {
 
             // Wait for intake detection with a timeout
             IntakeResult result = detector->wait(event.slot_id, pdMS_TO_TICKS(3000)); // 3-second timeout for testing
-            
+
             bool is_event_pushed = false;
             MedicationStatus status;
 
@@ -83,13 +83,13 @@ void motor_task(void *arg) {
                     .status = status,
                     .timestamp = is_time_synced() ? get_timestamp_ms() : 0
                 };
-                
+
                 esp_err_t err = event_queue_push(&medication_event);
-                ESP_LOGI(TAG, "Pushed %s event for slot ID: %d to event queue", 
+                ESP_LOGI(TAG, "Pushed %s event for slot ID: %d to event queue",
                     status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
 
                 if (err != ESP_OK) {
-                    ESP_LOGE(TAG, "Failed to push %s event for slot ID: %d", 
+                    ESP_LOGE(TAG, "Failed to push %s event for slot ID: %d",
                         status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
                 }
             }
