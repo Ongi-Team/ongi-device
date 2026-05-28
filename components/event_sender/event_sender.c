@@ -2,6 +2,7 @@
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,7 +16,21 @@
 
 static const char *TAG = "event_sender";
 
+static bool is_retryable_http_status(int status_code);
 static esp_err_t prepare_medication_event_request(esp_http_client_handle_t client, const char *json_payload);
+
+bool event_sender_is_transient_error(esp_err_t err) {
+    return err == ESP_ERR_TIMEOUT ||
+           err == ESP_ERR_HTTP_CONNECT ||
+           err == ESP_ERR_HTTP_WRITE_DATA ||
+           err == ESP_ERR_HTTP_FETCH_HEADER ||
+           err == ESP_ERR_HTTP_CONNECTING ||
+           err == ESP_ERR_HTTP_EAGAIN ||
+           err == ESP_ERR_HTTP_CONNECTION_CLOSED ||
+           err == ESP_ERR_HTTP_READ_TIMEOUT ||
+           err == ESP_ERR_HTTP_INCOMPLETE_DATA;
+}
+
 static const char *medication_status_to_string(MedicationStatus status) {
     switch (status) {
         case MEDICATION_TAKEN:
@@ -25,6 +40,10 @@ static const char *medication_status_to_string(MedicationStatus status) {
         default:
             return NULL;
     }
+}
+
+static bool is_retryable_http_status(int status_code) {
+    return status_code == 408 || status_code == 429 || status_code >= 500;
 }
 
 static esp_err_t build_medication_event_payload(const MedicationEvent *event, char *json_payload, size_t json_payload_size) {
@@ -127,7 +146,7 @@ esp_err_t event_sender_send(const MedicationEvent *event) {
                  (unsigned int)event->slot_id,
                  medication_status_to_string(event->status));
         esp_http_client_cleanup(client);
-        return ESP_FAIL;
+        return is_retryable_http_status(status_code) ? ESP_ERR_TIMEOUT : ESP_ERR_INVALID_RESPONSE;
     }
 
     ESP_LOGI(TAG, "Medication event POST completed: http_status=%d", status_code);
