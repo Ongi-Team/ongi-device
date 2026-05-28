@@ -7,6 +7,7 @@ static const char *TAG = "event_queue";
 static QueueHandle_t s_event_queue = NULL;
 static TaskHandle_t s_event_queue_task = NULL;
 
+static esp_err_t send_event_with_retry(const MedicationEvent *event);
 static void event_queue_task(void *arg);
 
 esp_err_t event_queue_init(void) {
@@ -61,12 +62,41 @@ esp_err_t event_queue_push(const MedicationEvent *event) {
     return ESP_OK;
 }
 
+static esp_err_t send_event_with_retry(const MedicationEvent *event) {
+    const int max_attempts = 3;
+    const TickType_t retry_delay_ticks = pdMS_TO_TICKS(2000);
+
+    for (int attempt = 1; attempt <= max_attempts; attempt++) {
+        esp_err_t err = event_sender_send(event);
+        if (err == ESP_OK) {
+            if (attempt > 1) {
+                ESP_LOGI(TAG, "Medication event sent after retry: slot_id=%d attempt=%d",
+                         event->slot_id,
+                         attempt);
+            }
+            return ESP_OK;
+        }
+
+        ESP_LOGW(TAG, "Medication event send failed: slot_id=%d attempt=%d/%d err=%s",
+                 event->slot_id,
+                 attempt,
+                 max_attempts,
+                 esp_err_to_name(err));
+
+        if (attempt < max_attempts) {
+            vTaskDelay(retry_delay_ticks);
+        }
+    }
+
+    return ESP_FAIL;
+}
+
 static void event_queue_task(void *arg) {
     MedicationEvent event;
 
     while (1) {
         if (xQueueReceive(s_event_queue, &event, portMAX_DELAY) == pdTRUE) {
-            esp_err_t err = event_sender_send(&event);
+            esp_err_t err = send_event_with_retry(&event);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to send event: slot_id=%d", event.slot_id);
             }
