@@ -1,7 +1,10 @@
 idf_component_register(
     SRCS "event_sender.c"
     INCLUDE_DIRS "include"
-    REQUIRES event_model)
+    PRIV_INCLUDE_DIRS "../wifi"
+    REQUIRES event_model
+        esp_http_client
+        mbedtls)
 if(CI_BUILD)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CI_BUILD)
     target_compile_options(${COMPONENT_LIB} PRIVATE
