@@ -85,6 +85,9 @@ void motor_task(void *arg) {
                 };
                 
                 esp_err_t err = event_queue_push(&medication_event);
+                ESP_LOGI(TAG, "Pushed %s event for slot ID: %d to event queue", 
+                    status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
+
                 if (err != ESP_OK) {
                     ESP_LOGE(TAG, "Failed to push %s event for slot ID: %d", 
                         status == MEDICATION_TAKEN ? "TAKEN" : "MISSED", event.slot_id);
