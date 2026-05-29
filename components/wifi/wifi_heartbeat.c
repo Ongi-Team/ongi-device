@@ -163,6 +163,26 @@ esp_err_t wifi_init() {
     return ESP_OK;
 }
 
+// Wait for Wi-Fi connection with a timeout
+esp_err_t wifi_wait_connected(TickType_t ticks_to_wait) {
+    // Check if the Wi-Fi event group is initialized
+    if (wifi_event_group == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    // Wait for the connected bit to be set in the event group
+    EventBits_t bits = xEventGroupWaitBits(
+        wifi_event_group,
+        WIFI_CONNECTED_BIT,
+        false,
+        true,
+        ticks_to_wait
+    );
+
+    // Check if the connected bit was set and return appropriate error code
+    return (bits & WIFI_CONNECTED_BIT) ? ESP_OK : ESP_ERR_TIMEOUT;
+}
+
 // HTTP event handler
 static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     if (evt->event_id == HTTP_EVENT_ON_DATA) {

@@ -40,7 +40,7 @@ build/
 flasher_args.json # Generated in build directory
 sdkconfig.old
 # sdkconfig
-dependencies.lock # If using ESP-IDF's component manager, this file tracks resolved dependencies
+# dependencies.lock # If using ESP-IDF's component manager, this file tracks resolved dependencies
 
 # ESP-IDF dependencies
 # For older versions or manual component management
