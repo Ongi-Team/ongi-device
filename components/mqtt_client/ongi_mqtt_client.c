@@ -22,6 +22,7 @@ static const char *TAG = "ongi-mqtt-client";
 
 #define MQTT_TOPIC_BUFFER_SIZE 160
 #define MQTT_START_RETRY_DELAY_MS 5000
+#define MQTT_COMMAND_QOS 1
 
 typedef struct {
     char open_all[MQTT_TOPIC_BUFFER_SIZE];
@@ -33,6 +34,38 @@ typedef struct {
 static OngiMqttTopics s_command_topics;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_started = false;
+
+static esp_err_t subscribe_command_topic(esp_mqtt_client_handle_t client, const char *topic, const char *command) {
+    if (client == NULL || topic == NULL || command == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int msg_id = esp_mqtt_client_subscribe(client, topic, MQTT_COMMAND_QOS);
+    if (msg_id < 0) {
+        ESP_LOGE(TAG, "Failed to subscribe MQTT command topic: command=%s", command);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "MQTT command subscribe requested: command=%s qos=%d msg_id=%d",
+             command,
+             MQTT_COMMAND_QOS,
+             msg_id);
+    return ESP_OK;
+}
+
+static esp_err_t subscribe_command_topics(esp_mqtt_client_handle_t client) {
+    esp_err_t err = subscribe_command_topic(client, s_command_topics.open_all, "open-all");
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = subscribe_command_topic(client, s_command_topics.close_all, "close-all");
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    return subscribe_command_topic(client, s_command_topics.schedule_updated, "schedule-updated");
+}
 
 // MQTT event handler to log connection status and errors
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
@@ -46,7 +79,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             break;
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT broker connected");
+            if (subscribe_command_topics((esp_mqtt_client_handle_t)handler_args) != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to request MQTT command subscriptions");
+            }
             break;
+        case MQTT_EVENT_SUBSCRIBED: {
+            esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
+            ESP_LOGI(TAG, "MQTT command subscription acknowledged: msg_id=%d", event->msg_id);
+            break;
+        }
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGW(TAG, "MQTT broker disconnected");
             break;
@@ -149,7 +190,7 @@ esp_err_t ongi_mqtt_client_start(void) {
             s_mqtt_client,
             ESP_EVENT_ANY_ID,
             mqtt_event_handler,
-            NULL
+            s_mqtt_client
         );
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to register MQTT event handler: %s", esp_err_to_name(err));
