@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "esp_err.h"
 #include "esp_event.h"
@@ -34,6 +35,52 @@ typedef struct {
 static OngiMqttTopics s_command_topics;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_started = false;
+
+static bool mqtt_topic_matches(const char *event_topic, int event_topic_len, const char *expected_topic) {
+    if (event_topic == NULL || event_topic_len < 0 || expected_topic == NULL) {
+        return false;
+    }
+
+    size_t expected_len = strlen(expected_topic);
+    return (size_t)event_topic_len == expected_len &&
+           memcmp(event_topic, expected_topic, expected_len) == 0;
+}
+
+static const char *get_command_name_from_topic(const char *topic, int topic_len) {
+    if (mqtt_topic_matches(topic, topic_len, s_command_topics.open_all)) {
+        return "open-all";
+    }
+
+    if (mqtt_topic_matches(topic, topic_len, s_command_topics.close_all)) {
+        return "close-all";
+    }
+
+    if (mqtt_topic_matches(topic, topic_len, s_command_topics.schedule_updated)) {
+        return "schedule-updated";
+    }
+
+    return "unknown";
+}
+
+static void log_received_command_metadata(const esp_mqtt_event_handle_t event) {
+    if (event == NULL) {
+        ESP_LOGW(TAG, "MQTT data event missing event context");
+        return;
+    }
+
+    const char *command = get_command_name_from_topic(event->topic, event->topic_len);
+    ESP_LOGI(TAG,
+             "MQTT command received: command=%s msg_id=%d topic_len=%d payload_len=%d total_payload_len=%d offset=%d qos=%d retain=%d dup=%d",
+             command,
+             event->msg_id,
+             event->topic_len,
+             event->data_len,
+             event->total_data_len,
+             event->current_data_offset,
+             event->qos,
+             event->retain,
+             event->dup);
+}
 
 static esp_err_t subscribe_command_topic(esp_mqtt_client_handle_t client, const char *topic, const char *command) {
     if (client == NULL || topic == NULL || command == NULL) {
@@ -88,6 +135,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG, "MQTT command subscription acknowledged: msg_id=%d", event->msg_id);
             break;
         }
+        case MQTT_EVENT_DATA:
+            log_received_command_metadata((esp_mqtt_event_handle_t)event_data);
+            break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGW(TAG, "MQTT broker disconnected");
             break;
@@ -208,7 +258,7 @@ esp_err_t ongi_mqtt_client_start(void) {
     }
 
     s_mqtt_started = true;
-    ESP_LOGI(TAG, "MQTT client started after Wi-Fi connection");
+    ESP_LOGI(TAG, "MQTT client start requested after Wi-Fi connection");
     return ESP_OK;
 }
 
