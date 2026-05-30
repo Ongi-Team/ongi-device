@@ -4,7 +4,7 @@
 
 ## Shared Skills
 
-공유 스킬 원본은 `.agent/skills` 아래에 둔다. Claude 호환 경로는 `.claude/skills` 아래에서 같은 스킬을 가리킨다. 기존 `.agents/skills`는 과거 호환 경로이며, 충돌이 있으면 `.agent/skills`를 우선한다.
+공유 스킬 원본은 `.agent/skills` 아래에 둔다. Claude 호환 경로는 `.claude/skills` 아래에서 같은 스킬을 심볼릭 링크로 가리킨다.
 
 현재 공유 스킬:
 
