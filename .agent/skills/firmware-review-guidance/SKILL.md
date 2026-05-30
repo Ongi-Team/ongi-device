@@ -35,7 +35,7 @@ description: Implementation direction, analysis, debugging, and review guidance 
 사용자가 "어떻게 해야 돼", "어디가 문제야", "에러 잡아줘", "리뷰해줘"라고 물으면 다음 순서로 본다.
 
 1. 의도 확인: 이 변경이 어떤 기능 명세나 이슈 TODO를 구현하려는 것인지 확인한다.
-2. GitHub 맥락 확인: 이슈/브랜치/PR/리뷰 흐름은 `github-workflow`의 맥락 복원 순서를 따른다.
+2. GitHub 맥락 확인: 이슈/브랜치/PR/리뷰 흐름은 `github-workflow` 스킬의 `Standard Workflow 0`(사람이 중간에 개입한 작업을 이어받는 경우) 맥락 복원 순서를 따른다.
 3. 현재 상태 확인: `git status`, 변경 diff, 관련 task/component 파일을 확인한다.
 4. 실행 흐름 확인: producer/consumer, task 생성 순서, callback, queue, event bit, timeout 경로를 따라간다.
 5. 실패 경로 확인: `esp_err_t`, `NULL`, FreeRTOS `pdPASS/pdTRUE`, HTTP status, NVS failure, queue full을 확인한다.

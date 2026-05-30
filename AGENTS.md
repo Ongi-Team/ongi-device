@@ -1,10 +1,10 @@
+# Agent Instructions
+
 ## Shared Skills
 
 공유 스킬 원본은 `.agent/skills` 아래에 둔다.
 Codex와 Claude 모두 같은 내용을 기준으로 작업해야 하며, Claude 호환 경로는
-`.claude/skills` 아래에서 공유 스킬을 가리킨다.
-기존 `.agents/skills`는 과거 호환 경로이며, 충돌이 있으면 `.agent/skills`의
-공유 스킬을 우선한다.
+`.claude/skills` 아래에서 공유 스킬을 심볼릭 링크로 가리킨다.
 
 현재 공유 스킬:
 
@@ -130,8 +130,8 @@ Codex와 Claude 모두 같은 내용을 기준으로 작업해야 하며, Claude
 - Infinite loop without delay
 - BLE/WiFi callback doing heavy work
 - Direct hardware control without state validation
-- Duplicate schedule trigger 가능 코드
-- Error ignored (`ESP_OK` 체크 없음)
+- Code with possible duplicate schedule trigger
+- Error return ignored (no `esp_err_t` check)
 
 ---
 
