@@ -14,6 +14,7 @@ typedef struct {
 
 esp_err_t schedule_store_init(void);
 esp_err_t schedule_store_apply(const SlotEntry *slots, size_t count);
+esp_err_t schedule_store_apply_fixture(void);
 esp_err_t schedule_store_get_snapshot(ScheduleSnapshot *snapshot);
 esp_err_t schedule_store_clear(void);
 

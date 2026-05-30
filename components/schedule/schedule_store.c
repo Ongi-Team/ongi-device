@@ -13,6 +13,28 @@ static SlotEntry s_slots[SCHEDULE_SLOT_COUNT];
 static size_t s_slot_count = 0;
 static uint32_t s_version = 0;
 
+static const SlotEntry s_fixture_slots[] = {
+    { .slot_id = 1, .hour = 7, .minute = 0, .triggered = false },
+    { .slot_id = 2, .hour = 8, .minute = 30, .triggered = false },
+    { .slot_id = 3, .hour = 10, .minute = 0, .triggered = false },
+    { .slot_id = 4, .hour = 12, .minute = 30, .triggered = false },
+    { .slot_id = 5, .hour = 15, .minute = 0, .triggered = false },
+    { .slot_id = 6, .hour = 18, .minute = 30, .triggered = false },
+    { .slot_id = 7, .hour = 21, .minute = 0, .triggered = false },
+    { .slot_id = 8, .hour = 22, .minute = 30, .triggered = false },
+};
+
+static void log_applied_slots(const SlotEntry *slots, size_t count, uint32_t version)
+{
+    for (size_t i = 0; i < count; i++) {
+        ESP_LOGI(TAG, "active slot: version=%u slot_id=%u time=%02u:%02u",
+                 (unsigned int)version,
+                 (unsigned int)slots[i].slot_id,
+                 (unsigned int)slots[i].hour,
+                 (unsigned int)slots[i].minute);
+    }
+}
+
 static esp_err_t validate_slots(const SlotEntry *slots, size_t count)
 {
     if (count > SCHEDULE_SLOT_COUNT) {
@@ -89,7 +111,15 @@ esp_err_t schedule_store_apply(const SlotEntry *slots, size_t count)
     ESP_LOGI(TAG, "Applied schedule snapshot: count=%u version=%u",
              (unsigned int)count,
              (unsigned int)s_version);
+    log_applied_slots(slots, count, s_version);
     return ESP_OK;
+}
+
+// Apply a predefined fixture schedule for testing purposes
+esp_err_t schedule_store_apply_fixture(void)
+{
+    ESP_LOGI(TAG, "Applying fixture schedule data");
+    return schedule_store_apply(s_fixture_slots, sizeof(s_fixture_slots) / sizeof(s_fixture_slots[0]));
 }
 
 // Get a snapshot of the current schedule store data

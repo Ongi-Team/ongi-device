@@ -63,6 +63,14 @@ void app_main(void)
         return;
     }
 
+    // TODO: Temporary fixture schedule for store integration testing.
+    // Remove this before using API-provided schedules or real hardware.
+    err = schedule_store_apply_fixture();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to apply fixture schedule");
+        return;
+    }
+
     // Initialize event queue and check for errors
     err = event_queue_init();
     if (err != ESP_OK) {
