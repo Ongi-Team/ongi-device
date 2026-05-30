@@ -39,6 +39,8 @@ static void log_applied_slots(const SlotEntry *slots, size_t count, uint32_t ver
 
 static esp_err_t validate_slots(const SlotEntry *slots, size_t count)
 {
+    bool used_slots[SCHEDULE_SLOT_COUNT + 1] = { false };
+
     if (count > SCHEDULE_SLOT_COUNT) {
         return ESP_ERR_INVALID_SIZE;
     }
@@ -52,6 +54,14 @@ static esp_err_t validate_slots(const SlotEntry *slots, size_t count)
             slots[i].hour > 23 || slots[i].minute > 59) {
             return ESP_ERR_INVALID_ARG;
         }
+
+        if (used_slots[slots[i].slot_id]) {
+            ESP_LOGE(TAG, "Duplicate schedule slot id: slot_id=%u",
+                     (unsigned int)slots[i].slot_id);
+            return ESP_ERR_INVALID_ARG;
+        }
+
+        used_slots[slots[i].slot_id] = true;
     }
 
     return ESP_OK;
