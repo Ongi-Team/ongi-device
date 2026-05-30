@@ -9,8 +9,48 @@
 
 static const char *TAG = "schedule";
 
-static void reset_trigger_flags(bool *triggered_slots, size_t count) {
-    memset(triggered_slots, 0, count * sizeof(bool));
+typedef struct {
+    uint8_t slot_id;
+    uint8_t hour;
+    uint8_t minute;
+    int day;
+    bool triggered;
+} TriggerRecord;
+
+static void reset_trigger_records(TriggerRecord *records, size_t count) {
+    memset(records, 0, count * sizeof(TriggerRecord));
+}
+
+static bool was_triggered_today(const TriggerRecord *records, size_t count, const SlotEntry *slot, int day) {
+    for (size_t i = 0; i < count; i++) {
+        if (records[i].triggered &&
+            records[i].day == day &&
+            records[i].slot_id == slot->slot_id &&
+            records[i].hour == slot->hour &&
+            records[i].minute == slot->minute) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void mark_triggered_today(TriggerRecord *records, size_t count, const SlotEntry *slot, int day) {
+    for (size_t i = 0; i < count; i++) {
+        if (!records[i].triggered) {
+            records[i].slot_id = slot->slot_id;
+            records[i].hour = slot->hour;
+            records[i].minute = slot->minute;
+            records[i].day = day;
+            records[i].triggered = true;
+            return;
+        }
+    }
+
+    ESP_LOGW(TAG, "No room to record triggered slot: slot=%u time=%02u:%02u",
+             (unsigned int)slot->slot_id,
+             (unsigned int)slot->hour,
+             (unsigned int)slot->minute);
 }
 
 void schedule_task(void *arg) {
@@ -24,7 +64,7 @@ void schedule_task(void *arg) {
 
     ESP_LOGI(TAG, "RTC synchronized, starting schedule monitoring");
 
-    bool triggered_slots[SCHEDULE_SLOT_COUNT + 1] = { false };
+    TriggerRecord trigger_records[SCHEDULE_SLOT_COUNT] = { 0 };
     uint32_t last_version = UINT32_MAX;
     int last_day = -1; // To track day changes and reset triggered flags
 
@@ -53,7 +93,6 @@ void schedule_task(void *arg) {
 
         // Check if the schedule version has changed, indicating an update to the schedule
         if (snapshot.version != last_version) {
-            reset_trigger_flags(triggered_slots, SCHEDULE_SLOT_COUNT + 1);
             last_version = snapshot.version;
             ESP_LOGI(TAG, "Loaded schedule snapshot: count=%u version=%u",
                      (unsigned int)snapshot.count,
@@ -63,7 +102,7 @@ void schedule_task(void *arg) {
         if (now_tm.tm_mday != last_day) {
             ESP_LOGI(TAG, "Day changed, resetting triggered flags");
 
-            reset_trigger_flags(triggered_slots, SCHEDULE_SLOT_COUNT + 1);
+            reset_trigger_records(trigger_records, SCHEDULE_SLOT_COUNT);
             last_day = now_tm.tm_mday;
         }
 
@@ -77,7 +116,7 @@ void schedule_task(void *arg) {
                 continue;
             }
 
-            if (triggered_slots[slot_id]) {
+            if (was_triggered_today(trigger_records, SCHEDULE_SLOT_COUNT, slot, now_tm.tm_mday)) {
                 continue; // Skip already triggered slots
             }
 
@@ -89,7 +128,7 @@ void schedule_task(void *arg) {
                 err = dispense_enqueue(slot_id);
                 if (err == ESP_OK) {
                     ESP_LOGI(TAG, "Dispense event enqueued for slot %d", slot_id);
-                    triggered_slots[slot_id] = true; // Mark slot as triggered to prevent retriggering within the same day
+                    mark_triggered_today(trigger_records, SCHEDULE_SLOT_COUNT, slot, now_tm.tm_mday);
                 } else {
                     ESP_LOGE(TAG, "Failed to enqueue dispense event for slot %d: %s", slot_id, esp_err_to_name(err));
                 }
