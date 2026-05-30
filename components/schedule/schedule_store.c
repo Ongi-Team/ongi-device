@@ -12,14 +12,16 @@ static SemaphoreHandle_t s_schedule_mutex = NULL;
 static SlotEntry s_slots[SCHEDULE_SLOT_COUNT];
 static size_t s_slot_count = 0;
 static uint32_t s_version = 0;
+static bool s_refresh_pending = false;
+static uint32_t s_refresh_request_count = 0;
 
 static const SlotEntry s_fixture_slots[] = {
     { .slot_id = 1, .hour = 7, .minute = 0, .triggered = false },
     { .slot_id = 2, .hour = 8, .minute = 30, .triggered = false },
     { .slot_id = 3, .hour = 10, .minute = 0, .triggered = false },
-    { .slot_id = 4, .hour = 12, .minute = 30, .triggered = false },
-    { .slot_id = 5, .hour = 15, .minute = 0, .triggered = false },
-    { .slot_id = 6, .hour = 18, .minute = 30, .triggered = false },
+    { .slot_id = 4, .hour = 20, .minute = 5, .triggered = false },
+    { .slot_id = 5, .hour = 20, .minute = 10, .triggered = false },
+    { .slot_id = 6, .hour = 20, .minute = 30, .triggered = false },
     { .slot_id = 7, .hour = 21, .minute = 0, .triggered = false },
     { .slot_id = 8, .hour = 22, .minute = 30, .triggered = false },
 };
@@ -71,6 +73,8 @@ esp_err_t schedule_store_init(void)
     // Initialize the schedule store with empty data
     s_slot_count = 0;
     s_version = 0;
+    s_refresh_pending = false;
+    s_refresh_request_count = 0;
     memset(s_slots, 0, sizeof(s_slots));
 
     ESP_LOGI(TAG, "Schedule store initialized");
@@ -145,6 +149,56 @@ esp_err_t schedule_store_get_snapshot(ScheduleSnapshot *snapshot)
     snapshot->version = s_version;
 
     // Release the mutex after reading the data
+    xSemaphoreGive(s_schedule_mutex);
+
+    return ESP_OK;
+}
+
+// SCHEDULE_UPDATED from MQTT
+esp_err_t schedule_store_request_refresh(void)
+{
+    if (s_schedule_mutex == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    // Acquire the mutex to safely update the refresh request state
+    if (xSemaphoreTake(s_schedule_mutex, portMAX_DELAY) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    // Critical section: set the refresh pending flag and increment the request count
+    s_refresh_pending = true;
+    s_refresh_request_count++;
+    uint32_t request_count = s_refresh_request_count;
+
+    // Release the mutex after updating the refresh request state
+    xSemaphoreGive(s_schedule_mutex);
+
+    ESP_LOGI(TAG, "Schedule refresh requested: request_count=%u", (unsigned int)request_count);
+    return ESP_OK;
+}
+
+esp_err_t schedule_store_consume_refresh_request(bool *was_pending, uint32_t *request_count)
+{
+    if (was_pending == NULL || request_count == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (s_schedule_mutex == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    // Acquire the mutex to safely read and update the refresh request state
+    if (xSemaphoreTake(s_schedule_mutex, portMAX_DELAY) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    // Critical section: return the current refresh pending state and request count, then reset the pending flag
+    *was_pending = s_refresh_pending;
+    *request_count = s_refresh_request_count;
+    s_refresh_pending = false;
+
+    // Release the mutex after reading and updating the refresh request state
     xSemaphoreGive(s_schedule_mutex);
 
     return ESP_OK;
