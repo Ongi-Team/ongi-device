@@ -3,6 +3,7 @@
 #include "storage_nvs.h"
 #include "rtc_driver.h"
 #include "schedule.h"
+#include "schedule_store.h"
 #include "dispense.h"
 #include "motor_task.h"
 #include "event_queue.h"
@@ -52,6 +53,13 @@ void app_main(void)
     err = dispense_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize dispense");
+        return;
+    }
+
+    // Initialize schedule store for API-provided schedules
+    err = schedule_store_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize schedule store");
         return;
     }
 

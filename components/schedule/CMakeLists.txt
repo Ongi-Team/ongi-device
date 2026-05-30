@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "schedule.c" 
+    SRCS "schedule.c" "schedule_store.c"
     INCLUDE_DIRS "include"
     REQUIRES rtc dispense)
 if(CI_BUILD)
