@@ -1,49 +1,56 @@
 #include "schedule.h"
+#include "schedule_store.h"
 #include "rtc_driver.h"
 #include "dispense.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include <string.h>
 #include <time.h>
 
 static const char *TAG = "schedule";
 
-static void init_test_slots(SlotEntry *slots, size_t count) {
-    time_t now_sec;
-    struct tm now;
+typedef struct {
+    uint8_t slot_id;
+    uint8_t hour;
+    uint8_t minute;
+    int day;
+    bool triggered;
+} TriggerRecord;
 
-    time(&now_sec);
-    localtime_r(&now_sec, &now);
-    
-    ESP_LOGI(TAG, "init_test_slots called");
-
-    for (int i=0; i<count; i++) {
-        struct tm slot_time = now;
-        slot_time.tm_min += i+1; // 1-minute intervals from current time
-
-        mktime(&slot_time); // Normalize time structure
-
-        slots[i].slot_id = i+1;
-        slots[i].hour = slot_time.tm_hour;
-        slots[i].minute = slot_time.tm_min;
-        slots[i].triggered = false;
-
-        ESP_LOGI(TAG, "test slot %d => %02d:%02d", slots[i].slot_id, slots[i].hour, slots[i].minute);
-    }
+static void reset_trigger_records(TriggerRecord *records, size_t count) {
+    memset(records, 0, count * sizeof(TriggerRecord));
 }
 
-static void reset_trigger_flags(SlotEntry *slots, size_t count) {
-    for (int i=0; i<count; i++) {
-        slots[i].triggered = false;
+static bool was_triggered_today(const TriggerRecord *records, size_t count, const SlotEntry *slot, int day) {
+    for (size_t i = 0; i < count; i++) {
+        if (records[i].triggered &&
+            records[i].day == day &&
+            records[i].slot_id == slot->slot_id &&
+            records[i].hour == slot->hour &&
+            records[i].minute == slot->minute) {
+            return true;
+        }
     }
+
+    return false;
 }
 
-esp_err_t schedule_init(SlotEntry *slots, size_t count) {
-    if (slots == NULL || count == 0) {
-        return ESP_ERR_INVALID_ARG;
+static void mark_triggered_today(TriggerRecord *records, size_t count, const SlotEntry *slot, int day) {
+    for (size_t i = 0; i < count; i++) {
+        if (!records[i].triggered) {
+            records[i].slot_id = slot->slot_id;
+            records[i].hour = slot->hour;
+            records[i].minute = slot->minute;
+            records[i].day = day;
+            records[i].triggered = true;
+            return;
+        }
     }
 
-    init_test_slots(slots, count);
-    return ESP_OK;
+    ESP_LOGW(TAG, "No room to record triggered slot: slot=%u time=%02u:%02u",
+             (unsigned int)slot->slot_id,
+             (unsigned int)slot->hour,
+             (unsigned int)slot->minute);
 }
 
 void schedule_task(void *arg) {
@@ -57,44 +64,73 @@ void schedule_task(void *arg) {
 
     ESP_LOGI(TAG, "RTC synchronized, starting schedule monitoring");
 
-    // Initialize schedule slots (for testing, we create slots at 1-minute intervals from current time)
-    SlotEntry slots[SCHEDULE_SLOT_COUNT];
-    schedule_init(slots, SCHEDULE_SLOT_COUNT);
-    
+    TriggerRecord trigger_records[SCHEDULE_SLOT_COUNT] = { 0 };
+    uint32_t last_version = UINT32_MAX;
     int last_day = -1; // To track day changes and reset triggered flags
 
     // Main loop to check and trigger scheduled slots
     while (1) {
         time_t now;
-        rtc_driver_get_time(&now);
+        // Get current time from RTC
+        esp_err_t err = rtc_driver_get_time(&now);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to get RTC time: %s", esp_err_to_name(err));
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
 
         struct tm now_tm;
         localtime_r(&now, &now_tm);
 
+        // Load the latest schedule snapshot
+        ScheduleSnapshot snapshot;
+        err = schedule_store_get_snapshot(&snapshot);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to load schedule snapshot: %s", esp_err_to_name(err));
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
+
+        // Check if the schedule version has changed, indicating an update to the schedule
+        if (snapshot.version != last_version) {
+            last_version = snapshot.version;
+            ESP_LOGI(TAG, "Loaded schedule snapshot: count=%u version=%u",
+                     (unsigned int)snapshot.count,
+                     (unsigned int)snapshot.version);
+        }
+
         if (now_tm.tm_mday != last_day) {
             ESP_LOGI(TAG, "Day changed, resetting triggered flags");
 
-            reset_trigger_flags(slots, SCHEDULE_SLOT_COUNT);
+            reset_trigger_records(trigger_records, SCHEDULE_SLOT_COUNT);
             last_day = now_tm.tm_mday;
         }
 
-        for (int i=0; i<SCHEDULE_SLOT_COUNT; i++) {
-            SlotEntry *slot = &slots[i];
+        // Iterate through the schedule slots and trigger any that match the current time
+        for (size_t i = 0; i < snapshot.count; i++) {
+            const SlotEntry *slot = &snapshot.slots[i];
+            uint8_t slot_id = slot->slot_id;
 
-            if (slot->triggered) {
+            if (slot_id == 0 || slot_id > SCHEDULE_SLOT_COUNT) {
+                ESP_LOGW(TAG, "Skipping invalid schedule slot id: %u", (unsigned int)slot_id);
+                continue;
+            }
+
+            if (was_triggered_today(trigger_records, SCHEDULE_SLOT_COUNT, slot, now_tm.tm_mday)) {
                 continue; // Skip already triggered slots
             }
 
+            // Check if the current time matches the scheduled time for this slot
             if (now_tm.tm_hour == slot->hour && now_tm.tm_min == slot->minute) {
-                ESP_LOGI(TAG, "Slot matched! slot = %d, time = %02d:%02d", slot->slot_id, slot->hour, slot->minute);
+                ESP_LOGI(TAG, "Slot matched! slot = %d, time = %02d:%02d", slot_id, slot->hour, slot->minute);
                 
                 // Enqueue dispense event for the matched slot
-                esp_err_t err = dispense_enqueue(slot->slot_id);
+                err = dispense_enqueue(slot_id);
                 if (err == ESP_OK) {
-                    ESP_LOGI(TAG, "Dispense event enqueued for slot %d", slot->slot_id);
-                    slot->triggered = true; // Mark slot as triggered to prevent retriggering within the same minute
+                    ESP_LOGI(TAG, "Dispense event enqueued for slot %d", slot_id);
+                    mark_triggered_today(trigger_records, SCHEDULE_SLOT_COUNT, slot, now_tm.tm_mday);
                 } else {
-                    ESP_LOGE(TAG, "Failed to enqueue dispense event for slot %d: %s", slot->slot_id, esp_err_to_name(err));
+                    ESP_LOGE(TAG, "Failed to enqueue dispense event for slot %d: %s", slot_id, esp_err_to_name(err));
                 }
             }
         }    
