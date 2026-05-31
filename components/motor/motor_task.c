@@ -68,8 +68,8 @@ void motor_task(void *arg) {
                 continue;
             }
 
-            // Wait for intake detection with a timeout
-            IntakeResult result = detector->wait(event.slot_id, pdMS_TO_TICKS(3000)); // 3-second timeout for testing
+            // servo->open blocks until fade completes; give the user time to take medication
+            IntakeResult result = detector->wait(event.slot_id, pdMS_TO_TICKS(15000));
 
             bool is_event_pushed = false;
             MedicationStatus status;

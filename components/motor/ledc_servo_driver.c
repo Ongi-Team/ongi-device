@@ -15,6 +15,7 @@ static const char *TAG = "ledc_servo";
 
 #define SERVO_OPEN_ANGLE_DEG  90
 #define SERVO_CLOSE_ANGLE_DEG 0
+#define SERVO_FADE_MS         500
 
 static ledc_channel_t s_channels[SLOT_COUNT];
 
@@ -69,10 +70,16 @@ esp_err_t ledc_servo_driver_init(void)
             ESP_LOGE(TAG, "LEDC channel init failed: slot=%d gpio=%d", slot_id, cfg->servo_gpio);
             return err;
         }
-        ESP_LOGI(TAG, "servo init: slot=%d gpio=%d ch=%d", slot_id, cfg->servo_gpio, ch);
+        ESP_LOGI(TAG, "servo init: slot=%d gpio=%d ch=%d duty=%u", slot_id, cfg->servo_gpio, ch, (unsigned)close_duty);
     }
 
-    ESP_LOGI(TAG, "all %d servo channels initialized", SLOT_COUNT);
+    esp_err_t fade_err = ledc_fade_func_install(0);
+    if (fade_err != ESP_OK && fade_err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "fade func install failed: %s", esp_err_to_name(fade_err));
+        return fade_err;
+    }
+
+    ESP_LOGI(TAG, "all %d servo channels initialized to close angle", SLOT_COUNT);
     return ESP_OK;
 }
 
@@ -83,14 +90,14 @@ static esp_err_t ledc_open(uint8_t slot_id)
     }
     ledc_channel_t ch = s_channels[slot_id - 1];
     uint32_t duty = angle_to_duty(SERVO_OPEN_ANGLE_DEG);
-    esp_err_t err = ledc_set_duty(SERVO_MODE, ch, duty);
+    esp_err_t err = ledc_set_fade_with_time(SERVO_MODE, ch, duty, SERVO_FADE_MS);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "servo open set_duty failed: slot=%d", slot_id);
+        ESP_LOGE(TAG, "servo open set_fade failed: slot=%d", slot_id);
         return err;
     }
-    err = ledc_update_duty(SERVO_MODE, ch);
+    err = ledc_fade_start(SERVO_MODE, ch, LEDC_FADE_WAIT_DONE);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "servo open update_duty failed: slot=%d", slot_id);
+        ESP_LOGE(TAG, "servo open fade_start failed: slot=%d", slot_id);
         return err;
     }
     ESP_LOGI(TAG, "servo open: slot=%d ch=%d duty=%u", slot_id, ch, (unsigned)duty);
@@ -104,14 +111,14 @@ static esp_err_t ledc_close(uint8_t slot_id)
     }
     ledc_channel_t ch = s_channels[slot_id - 1];
     uint32_t duty = angle_to_duty(SERVO_CLOSE_ANGLE_DEG);
-    esp_err_t err = ledc_set_duty(SERVO_MODE, ch, duty);
+    esp_err_t err = ledc_set_fade_with_time(SERVO_MODE, ch, duty, SERVO_FADE_MS);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "servo close set_duty failed: slot=%d", slot_id);
+        ESP_LOGE(TAG, "servo close set_fade failed: slot=%d", slot_id);
         return err;
     }
-    err = ledc_update_duty(SERVO_MODE, ch);
+    err = ledc_fade_start(SERVO_MODE, ch, LEDC_FADE_WAIT_DONE);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "servo close update_duty failed: slot=%d", slot_id);
+        ESP_LOGE(TAG, "servo close fade_start failed: slot=%d", slot_id);
         return err;
     }
     ESP_LOGI(TAG, "servo close: slot=%d ch=%d duty=%u", slot_id, ch, (unsigned)duty);
