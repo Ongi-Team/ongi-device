@@ -52,8 +52,12 @@ void motor_task(void *arg) {
         if (xQueueReceive(dispense_queue, &event, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Processing dispense event for slot ID: %d", event.slot_id);
 
-            // Open the servo to dispense medication
-            servo->open(event.slot_id);
+            esp_err_t open_err = servo->open(event.slot_id);
+            if (open_err != ESP_OK) {
+                ESP_LOGE(TAG, "servo open failed for slot %d: %s", event.slot_id, esp_err_to_name(open_err));
+                // TODO: open failure means dispense never started — add a device fault event type to report to server
+                continue;
+            }
 
             // Wait for intake detection with a timeout
             IntakeResult result = detector->wait(event.slot_id, pdMS_TO_TICKS(3000)); // 3-second timeout for testing
@@ -77,7 +81,11 @@ void motor_task(void *arg) {
                     break;
             }
 
-            servo->close(event.slot_id);
+            esp_err_t close_err = servo->close(event.slot_id);
+            if (close_err != ESP_OK) {
+                ESP_LOGE(TAG, "servo close failed for slot %d: %s", event.slot_id, esp_err_to_name(close_err));
+                // TODO: if close fails while another slot dispenses, medication mixing is possible — response strategy TBD
+            }
 
             if (is_event_pushed) {
                 MedicationEvent medication_event = {
