@@ -79,6 +79,13 @@ void app_main(void)
         return;
     }
     
+    // Initialize motor subsystem (servo driver) before starting the task
+    err = motor_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize motor");
+        return;
+    }
+
     // Create the motor task
     BaseType_t motor_task_created = create_motor_task();
 

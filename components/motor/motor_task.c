@@ -12,6 +12,15 @@ static const char *TAG = "motor";
 static int64_t get_timestamp_ms(void);
 static bool is_time_synced(void);
 
+esp_err_t motor_init(void) {
+    const ServoDriver *servo = get_default_servo_driver();
+    if (servo == NULL) {
+        ESP_LOGE(TAG, "servo driver init failed");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
 BaseType_t create_motor_task(void) {
     return xTaskCreate(
         motor_task,
