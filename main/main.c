@@ -7,6 +7,7 @@
 #include "dispense.h"
 #include "motor_task.h"
 #include "event_queue.h"
+#include "intake.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -33,6 +34,13 @@ void app_main(void)
 
     // Initialize RTC and check for errors
     ESP_ERROR_CHECK(rtc_driver_init());
+
+    // Initialize intake module and check for errors
+    err = intake_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize intake");
+        return;
+    }
 
     // Create the heartbeat task
     BaseType_t heartbeat_task_created = xTaskCreate(
