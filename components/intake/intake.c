@@ -2,6 +2,8 @@
 #include "ads1115.h"
 #include "slot_map.h"
 #include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_log.h"
 #include <stddef.h>
 
@@ -9,6 +11,81 @@ static const char *TAG = "intake";
 
 #define INTAKE_I2C_SDA_GPIO GPIO_NUM_21
 #define INTAKE_I2C_SCL_GPIO GPIO_NUM_22
+#define INTAKE_DEFAULT_RAW_THRESHOLD 1000
+
+static SemaphoreHandle_t s_threshold_mutex = NULL;
+static int16_t s_thresholds[SLOT_COUNT];
+
+static esp_err_t validate_slot_id(uint8_t slot_id)
+{
+    if (slot_id < 1 || slot_id > SLOT_COUNT) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t init_thresholds(void)
+{
+    if (s_threshold_mutex == NULL) {
+        s_threshold_mutex = xSemaphoreCreateMutex();
+        if (s_threshold_mutex == NULL) {
+            ESP_LOGE(TAG, "threshold mutex create failed");
+            return ESP_ERR_NO_MEM;
+        }
+
+        for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+            s_thresholds[i] = INTAKE_DEFAULT_RAW_THRESHOLD;
+        }
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t intake_get_slot_threshold(uint8_t slot_id, int16_t *out_threshold)
+{
+    if (out_threshold == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = validate_slot_id(slot_id);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    if (s_threshold_mutex == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (xSemaphoreTake(s_threshold_mutex, portMAX_DELAY) != pdTRUE) {
+        return ESP_FAIL;
+    }
+
+    *out_threshold = s_thresholds[slot_id - 1];
+    xSemaphoreGive(s_threshold_mutex);
+    return ESP_OK;
+}
+
+esp_err_t intake_set_slot_threshold(uint8_t slot_id, int16_t threshold)
+{
+    esp_err_t err = validate_slot_id(slot_id);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    if (s_threshold_mutex == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (xSemaphoreTake(s_threshold_mutex, portMAX_DELAY) != pdTRUE) {
+        return ESP_FAIL;
+    }
+
+    s_thresholds[slot_id - 1] = threshold;
+    xSemaphoreGive(s_threshold_mutex);
+    ESP_LOGI(TAG, "intake threshold set: slot=%u threshold=%d", slot_id, threshold);
+    return ESP_OK;
+}
 
 esp_err_t intake_read_slot_raw(uint8_t slot_id, int16_t *out_raw)
 {
@@ -50,7 +127,12 @@ static esp_err_t log_slot_readings(void)
 
 esp_err_t intake_init(void)
 {
-    esp_err_t err = ads1115_bus_init(INTAKE_I2C_SDA_GPIO, INTAKE_I2C_SCL_GPIO);
+    esp_err_t err = init_thresholds();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = ads1115_bus_init(INTAKE_I2C_SDA_GPIO, INTAKE_I2C_SCL_GPIO);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ADS1115 bus init failed: %s", esp_err_to_name(err));
         return err;
