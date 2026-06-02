@@ -46,22 +46,6 @@ void app_main(void)
         return;
     }
 
-    // Initialize motor subsystem and command queue before MQTT can receive remote commands
-    err = motor_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize motor");
-        return;
-    }
-
-#if !defined(CI_BUILD) && !defined(TEST_BUILD)
-    // Initialize MQTT client and prepare command topics
-    err = ongi_mqtt_client_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize MQTT client: %s", esp_err_to_name(err));
-        return;
-    }
-#endif
-
     // Create the heartbeat task
     BaseType_t heartbeat_task_created = xTaskCreate(
         heartbeat_task, 
@@ -76,22 +60,6 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to create heartbeat task");
         return;
     }
-
-#if !defined(CI_BUILD) && !defined(TEST_BUILD)
-    // Create the MQTT client task
-    BaseType_t mqtt_task_created = xTaskCreate(
-        ongi_mqtt_client_task,
-        "mqtt_client_task",
-        ONGI_MQTT_TASK_STACK_SIZE,
-        NULL,
-        ONGI_MQTT_TASK_PRIORITY,
-        NULL
-    );
-    if (mqtt_task_created != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create MQTT client task");
-        return;
-    }
-#endif
 
     // Initialize dispense module and check for errors
     err = dispense_init();
@@ -123,6 +91,13 @@ void app_main(void)
         return;
     }
 
+    // Register motor queues before MQTT can receive remote commands
+    err = motor_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize motor");
+        return;
+    }
+
     // Create the motor task
     BaseType_t motor_task_created = create_motor_task();
 
@@ -130,6 +105,29 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to create motor task");
         return;
     }
+
+#if !defined(CI_BUILD) && !defined(TEST_BUILD)
+    // Initialize MQTT client and prepare command topics after motor queues are registered
+    err = ongi_mqtt_client_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize MQTT client: %s", esp_err_to_name(err));
+        return;
+    }
+
+    // Create the MQTT client task after motor_task can consume remote commands
+    BaseType_t mqtt_task_created = xTaskCreate(
+        ongi_mqtt_client_task,
+        "mqtt_client_task",
+        ONGI_MQTT_TASK_STACK_SIZE,
+        NULL,
+        ONGI_MQTT_TASK_PRIORITY,
+        NULL
+    );
+    if (mqtt_task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create MQTT client task");
+        return;
+    }
+#endif
 
     // Create the schedule task
     BaseType_t schedule_task_created = xTaskCreate(

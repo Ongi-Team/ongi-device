@@ -11,6 +11,8 @@
 
 static const char *TAG = "motor";
 static QueueHandle_t s_motor_command_queue = NULL;
+static QueueSetHandle_t s_motor_queue_set = NULL;
+static bool s_motor_queues_registered = false;
 
 static int64_t get_timestamp_ms(void);
 static bool is_time_synced(void);
@@ -21,12 +23,35 @@ static esp_err_t process_motor_command(MotorCommand command, const ServoDriver *
 static esp_err_t run_all_slot_command(MotorCommand command, const ServoDriver *servo);
 
 esp_err_t motor_init(void) {
+    QueueHandle_t dispense_queue = get_dispense_queue();
+    if (dispense_queue == NULL) {
+        ESP_LOGE(TAG, "dispense queue is not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+
     if (s_motor_command_queue == NULL) {
         s_motor_command_queue = xQueueCreate(MOTOR_COMMAND_QUEUE_LENGTH, sizeof(MotorCommand));
         if (s_motor_command_queue == NULL) {
             ESP_LOGE(TAG, "motor command queue init failed");
             return ESP_ERR_NO_MEM;
         }
+    }
+
+    if (s_motor_queue_set == NULL) {
+        s_motor_queue_set = xQueueCreateSet(DISPENSE_QUEUE_LENGTH + MOTOR_COMMAND_QUEUE_LENGTH);
+        if (s_motor_queue_set == NULL) {
+            ESP_LOGE(TAG, "motor queue set init failed");
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
+    if (!s_motor_queues_registered) {
+        if (xQueueAddToSet(dispense_queue, s_motor_queue_set) != pdPASS ||
+            xQueueAddToSet(s_motor_command_queue, s_motor_queue_set) != pdPASS) {
+            ESP_LOGE(TAG, "failed to add motor queues to queue set");
+            return ESP_FAIL;
+        }
+        s_motor_queues_registered = true;
     }
 
     const ServoDriver *servo = get_default_servo_driver();
@@ -87,6 +112,12 @@ void motor_task(void *arg) {
         return;
     }
 
+    if (s_motor_queue_set == NULL || !s_motor_queues_registered) {
+        ESP_LOGE(TAG, "motor queue set is not initialized");
+        vTaskDelete(NULL);
+        return;
+    }
+
     const IntakeDetector *detector = get_default_intake_detector();
     if (detector == NULL) {
         ESP_LOGE(TAG, "intake detector is not initialized");
@@ -101,23 +132,8 @@ void motor_task(void *arg) {
         return;
     }
 
-    QueueSetHandle_t motor_queue_set = xQueueCreateSet(DISPENSE_QUEUE_LENGTH + MOTOR_COMMAND_QUEUE_LENGTH);
-    if (motor_queue_set == NULL) {
-        ESP_LOGE(TAG, "motor queue set init failed");
-        vTaskDelete(NULL);
-        return;
-    }
-
-    if (xQueueAddToSet(dispense_queue, motor_queue_set) != pdPASS ||
-        xQueueAddToSet(s_motor_command_queue, motor_queue_set) != pdPASS) {
-        ESP_LOGE(TAG, "failed to add motor queues to queue set");
-        vQueueDelete(motor_queue_set);
-        vTaskDelete(NULL);
-        return;
-    }
-
     while (1) {
-        QueueSetMemberHandle_t ready_queue = xQueueSelectFromSet(motor_queue_set, portMAX_DELAY);
+        QueueSetMemberHandle_t ready_queue = xQueueSelectFromSet(s_motor_queue_set, portMAX_DELAY);
 
         if (ready_queue == dispense_queue) {
             DispenseEvent event;
