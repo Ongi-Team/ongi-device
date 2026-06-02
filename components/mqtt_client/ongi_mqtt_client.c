@@ -49,6 +49,7 @@ static const char *TAG = "ongi-mqtt-client";
 #define MQTT_COMMAND_QOS 1
 #define MQTT_OPEN_ALL_PAYLOAD "OPEN_ALL"
 #define MQTT_CLOSE_ALL_PAYLOAD "CLOSE_ALL"
+#define MQTT_DUPLICATE_SUPPRESS_WINDOW_MS 30000
 
 typedef struct {
     char open_all[MQTT_TOPIC_BUFFER_SIZE];
@@ -57,7 +58,15 @@ typedef struct {
     bool initialized;
 } OngiMqttTopics;
 
+typedef struct {
+    bool valid;
+    int msg_id;
+    MotorCommandType type;
+    TickType_t received_tick;
+} RecentMqttMotorCommand;
+
 static OngiMqttTopics s_command_topics;
+static RecentMqttMotorCommand s_recent_motor_command;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_started = false;
 
@@ -139,6 +148,31 @@ static esp_err_t get_motor_command_from_event(const esp_mqtt_event_handle_t even
     return ESP_ERR_NOT_FOUND;
 }
 
+static bool is_recent_duplicate_motor_command(const esp_mqtt_event_handle_t event, MotorCommand command) {
+    if (event == NULL || !event->dup || !s_recent_motor_command.valid) {
+        return false;
+    }
+
+    if (s_recent_motor_command.msg_id != event->msg_id ||
+        s_recent_motor_command.type != command.type) {
+        return false;
+    }
+
+    TickType_t elapsed_ticks = xTaskGetTickCount() - s_recent_motor_command.received_tick;
+    return elapsed_ticks <= pdMS_TO_TICKS(MQTT_DUPLICATE_SUPPRESS_WINDOW_MS);
+}
+
+static void remember_motor_command(const esp_mqtt_event_handle_t event, MotorCommand command) {
+    if (event == NULL) {
+        return;
+    }
+
+    s_recent_motor_command.valid = true;
+    s_recent_motor_command.msg_id = event->msg_id;
+    s_recent_motor_command.type = command.type;
+    s_recent_motor_command.received_tick = xTaskGetTickCount();
+}
+
 static void log_received_command_metadata(const esp_mqtt_event_handle_t event) {
     if (event == NULL) {
         ESP_LOGW(TAG, "MQTT data event missing event context");
@@ -173,10 +207,20 @@ static void handle_mqtt_command_data(const esp_mqtt_event_handle_t event) {
         return;
     }
 
+    if (is_recent_duplicate_motor_command(event, command)) {
+        ESP_LOGW(TAG, "MQTT duplicate motor command ignored: command=%s msg_id=%d",
+                 get_command_name_from_topic(event->topic, event->topic_len),
+                 event->msg_id);
+        return;
+    }
+
     err = motor_command_enqueue(command);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "MQTT motor command enqueue failed: err=%s", esp_err_to_name(err));
+        return;
     }
+
+    remember_motor_command(event, command);
 }
 
 static esp_err_t subscribe_command_topic(esp_mqtt_client_handle_t client, const char *topic, const char *command) {
