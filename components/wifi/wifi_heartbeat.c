@@ -13,7 +13,7 @@
 // RTC
 #include "rtc_driver.h"
 
-#ifdef CI_BUILD 
+#if defined(CI_BUILD) || defined(TEST_BUILD)
     #include "wifi_config_example.h"
     #include "http_config_example.h"
 #else
