@@ -102,9 +102,21 @@ esp_err_t ads1115_detect(uint8_t addr, bool *found)
     if (s_bus == NULL) return ESP_ERR_INVALID_STATE;
 
     esp_err_t err = i2c_master_probe(s_bus, addr, 50);
-    *found = (err == ESP_OK);
-    ESP_LOGI(TAG, "detect 0x%02x: %s", addr, *found ? "found" : "not found");
-    return ESP_OK;
+    if (err == ESP_OK) {
+        *found = true;
+        ESP_LOGI(TAG, "detect 0x%02x: found", addr);
+        return ESP_OK;
+    }
+
+    if (err == ESP_ERR_NOT_FOUND) {
+        *found = false;
+        ESP_LOGI(TAG, "detect 0x%02x: not found", addr);
+        return ESP_OK;
+    }
+
+    *found = false;
+    ESP_LOGE(TAG, "detect 0x%02x failed: %s", addr, esp_err_to_name(err));
+    return err;
 }
 
 esp_err_t ads1115_read_channel(uint8_t addr, uint8_t channel, int16_t *out)
