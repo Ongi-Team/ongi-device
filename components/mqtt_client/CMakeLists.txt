@@ -2,7 +2,7 @@ idf_component_register(
     SRCS "ongi_mqtt_client.c"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "../wifi"
-    PRIV_REQUIRES mqtt wifi
+    PRIV_REQUIRES mqtt wifi motor
 )
 
 if(CI_BUILD)

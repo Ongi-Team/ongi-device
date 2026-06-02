@@ -46,6 +46,13 @@ void app_main(void)
         return;
     }
 
+    // Initialize motor subsystem and command queue before MQTT can receive remote commands
+    err = motor_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize motor");
+        return;
+    }
+
 #if !defined(CI_BUILD) && !defined(TEST_BUILD)
     // Initialize MQTT client and prepare command topics
     err = ongi_mqtt_client_init();
@@ -113,13 +120,6 @@ void app_main(void)
     err = event_queue_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize event queue");
-        return;
-    }
-    
-    // Initialize motor subsystem (servo driver) before starting the task
-    err = motor_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize motor");
         return;
     }
 
