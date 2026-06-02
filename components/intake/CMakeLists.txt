@@ -1,7 +1,7 @@
 idf_component_register(
-    SRCS "dummy_intake_detector.c" "intake_detector_factory.c"
+    SRCS "dummy_intake_detector.c" "intake_detector_factory.c" "intake.c"
     INCLUDE_DIRS "include"
-    REQUIRES )
+    REQUIRES ads1115_driver esp_driver_gpio freertos slot_map)
 if(CI_BUILD)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CI_BUILD)
     target_compile_options(${COMPONENT_LIB} PRIVATE 
@@ -9,4 +9,7 @@ if(CI_BUILD)
         -Wno-unused-variable
         -Wno-unused-parameter
     )
+endif()
+if(TEST_BUILD)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE TEST_BUILD)
 endif()

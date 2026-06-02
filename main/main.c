@@ -3,10 +3,12 @@
 #include "storage_nvs.h"
 #include "rtc_driver.h"
 #include "schedule.h"
+#include "schedule_store.h"
 #include "dispense.h"
 #include "motor_task.h"
 #include "event_queue.h"
 #include "ongi_mqtt_client.h"
+#include "intake.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -33,6 +35,13 @@ void app_main(void)
 
     // Initialize RTC and check for errors
     ESP_ERROR_CHECK(rtc_driver_init());
+
+    // Initialize intake module and check for errors
+    err = intake_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize intake");
+        return;
+    }
 
     // Initialize MQTT client and prepare command topics
     err = ongi_mqtt_client_init();
@@ -77,6 +86,22 @@ void app_main(void)
         return;
     }
 
+    // Initialize schedule store for API-provided schedules
+    err = schedule_store_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize schedule store");
+        return;
+    }
+
+#if defined(CI_BUILD) || defined(TEST_BUILD)
+    // Temporary fixture schedule for CI/store integration and local test builds.
+    err = schedule_store_apply_fixture();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to apply fixture schedule");
+        return;
+    }
+#endif
+
     // Initialize event queue and check for errors
     err = event_queue_init();
     if (err != ESP_OK) {
@@ -84,6 +109,13 @@ void app_main(void)
         return;
     }
     
+    // Initialize motor subsystem (servo driver) before starting the task
+    err = motor_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize motor");
+        return;
+    }
+
     // Create the motor task
     BaseType_t motor_task_created = create_motor_task();
 

@@ -162,6 +162,7 @@ Closes #이슈번호
 - 로그 검증 스크린샷 첨부 예정
 ```
 
+- PR 제목과 본문(Description, Review Point, Etc 포함)은 모두 영어로 작성한다.
 - PR 제목은 이슈 제목 스타일과 맞춘다: `Feat: ...`, `Fix: ...`, `Refactor: ...`, `Docs: ...`.
 - `Related Issue`에는 기본적으로 `Closes #번호`를 쓴다. 여러 이슈를 닫으면 줄을 나눠 모두 적는다.
 - PR assignee는 반드시 `jaeunda`로 설정한다.
@@ -179,7 +180,7 @@ Closes #이슈번호
 - `Verification Evidence`에는 실제 로그 검증 스크린샷 또는 스크린샷 첨부 예정 메모를 둔다.
 - 펌웨어 동작을 바꾸는 PR에는 반드시 로그 검증 스크린샷이 들어간다. 이미지 파일과 실제 첨부는 사용자가 직접 반영할 수 있으므로, 에이전트는 `Verification Criteria`에 완료 조건을 명확히 남긴다.
 - docs/chore처럼 펌웨어 동작을 바꾸지 않는 PR은 `Verification Evidence`에 `- Firmware log screenshot: not applicable for this <reason>.`를 허용한다.
-- 스크린샷이 아직 없으면 `Verification Evidence`에 `- 로그 검증 스크린샷 첨부 예정`처럼 자리만 남긴다.
+- 스크린샷이 아직 없으면 `Verification Evidence`에 `- Log screenshot: to be attached`처럼 자리만 남긴다.
 - 로그 검증 bullet은 구현 단위에 맞게 작게 쓴다. 예: schedule match, queue enqueue, motor dequeue, servo open/close, intake timeout, HTTP status, retry/backoff, duplicate trigger 없음.
 
 ## Standard Workflow
