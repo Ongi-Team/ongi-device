@@ -16,12 +16,12 @@ static bool s_refresh_pending = false;
 static uint32_t s_refresh_request_count = 0;
 
 static const SlotEntry s_fixture_slots[] = {
-    { .slot_id = 1, .hour = 22, .minute = 12, .triggered = false },
-    { .slot_id = 2, .hour = 22, .minute = 13, .triggered = false },
-    { .slot_id = 3, .hour = 22, .minute = 14, .triggered = false },
-    { .slot_id = 4, .hour = 22, .minute = 15, .triggered = false },
-    { .slot_id = 5, .hour = 22, .minute = 16, .triggered = false },
-    { .slot_id = 6, .hour = 22, .minute = 17, .triggered = false },
+    { .slot_id = 1, .hour = 22, .minute = 32, .triggered = false },
+    { .slot_id = 2, .hour = 22, .minute = 33, .triggered = false },
+    { .slot_id = 3, .hour = 22, .minute = 34, .triggered = false },
+    { .slot_id = 4, .hour = 22, .minute = 35, .triggered = false },
+    { .slot_id = 5, .hour = 22, .minute = 36, .triggered = false },
+    { .slot_id = 6, .hour = 22, .minute = 37, .triggered = false },
 };
 
 static void log_applied_slots(const SlotEntry *slots, size_t count, uint32_t version)

@@ -1,6 +1,6 @@
 #include "servo_driver_factory.h"
 
-#if defined(CI_BUILD) || defined(TEST_BUILD)
+#if defined(CI_BUILD)
 #include "dummy_servo_driver.h"
 
 // Get the default servo driver instance, which is a dummy driver in CI/test builds.
