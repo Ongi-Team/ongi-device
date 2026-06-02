@@ -22,8 +22,6 @@ static const SlotEntry s_fixture_slots[] = {
     { .slot_id = 4, .hour = 22, .minute = 15, .triggered = false },
     { .slot_id = 5, .hour = 22, .minute = 16, .triggered = false },
     { .slot_id = 6, .hour = 22, .minute = 17, .triggered = false },
-    { .slot_id = 7, .hour = 22, .minute = 18, .triggered = false },
-    { .slot_id = 8, .hour = 22, .minute = 19, .triggered = false },
 };
 
 static void log_applied_slots(const SlotEntry *slots, size_t count, uint32_t version)

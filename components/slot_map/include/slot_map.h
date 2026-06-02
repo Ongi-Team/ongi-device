@@ -5,7 +5,7 @@
 #include "driver/gpio.h"
 #include "esp_err.h"
 
-#define SLOT_COUNT 8
+#define SLOT_COUNT 6
 
 typedef struct {
     gpio_num_t servo_gpio;
