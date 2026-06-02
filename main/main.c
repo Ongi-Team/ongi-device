@@ -82,6 +82,13 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to apply fixture schedule");
         return;
     }
+#else
+    // Request the first server schedule fetch after RTC sync gates the schedule task.
+    err = schedule_store_request_refresh();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to request initial schedule refresh");
+        return;
+    }
 #endif
 
     // Initialize event queue and check for errors

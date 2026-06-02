@@ -1,13 +1,18 @@
 #include "schedule.h"
+#include "schedule_fetcher.h"
 #include "schedule_store.h"
 #include "rtc_driver.h"
 #include "dispense.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 #include <time.h>
 
 static const char *TAG = "schedule";
+
+#define SCHEDULE_REFRESH_RETRY_DELAY_MS 5000
 
 typedef struct {
     uint8_t slot_id;
@@ -53,23 +58,63 @@ static void mark_triggered_today(TriggerRecord *records, size_t count, const Slo
              (unsigned int)slot->minute);
 }
 
+static bool tick_has_reached(TickType_t now, TickType_t target) {
+    const TickType_t half_range = (TickType_t)1 << ((sizeof(TickType_t) * 8) - 1);
+    return (TickType_t)(now - target) < half_range;
+}
+
 static void consume_schedule_refresh_request(void) {
+    static bool retry_pending = false;
+    static uint32_t retry_request_count = 0;
+    static TickType_t next_retry_tick = 0;
+
+    TickType_t now_tick = xTaskGetTickCount();
     bool refresh_pending = false;
     uint32_t request_count = 0;
 
-    esp_err_t err = schedule_store_consume_refresh_request(&refresh_pending, &request_count);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to consume schedule refresh request: %s", esp_err_to_name(err));
-        return;
+    if (retry_pending) {
+        if (!tick_has_reached(now_tick, next_retry_tick)) {
+            return;
+        }
+        refresh_pending = true;
+        request_count = retry_request_count;
+    } else {
+        esp_err_t err = schedule_store_consume_refresh_request(&refresh_pending, &request_count);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to consume schedule refresh request: %s", esp_err_to_name(err));
+            return;
+        }
     }
 
     if (!refresh_pending) {
         return;
     }
 
+    SlotEntry fetched_slots[SCHEDULE_SLOT_COUNT] = { 0 };
+    size_t fetched_count = 0;
+
+    // Fetch and apply the latest server schedule outside the MQTT event callback.
+    esp_err_t err = schedule_fetcher_fetch(fetched_slots, SCHEDULE_SLOT_COUNT, &fetched_count);
+    if (err == ESP_OK) {
+        err = schedule_store_apply(fetched_slots, fetched_count);
+    }
+
+    if (err != ESP_OK) {
+        retry_pending = true;
+        retry_request_count = request_count;
+        next_retry_tick = xTaskGetTickCount() + pdMS_TO_TICKS(SCHEDULE_REFRESH_RETRY_DELAY_MS);
+        ESP_LOGW(TAG,
+                 "Schedule refresh failed; keeping previous snapshot: request_count=%u err=%s",
+                 (unsigned int)request_count,
+                 esp_err_to_name(err));
+        return;
+    }
+
+    retry_pending = false;
     ESP_LOGI(TAG,
-             "Schedule refresh notification consumed: request_count=%u fetch_status=pending_contract",
-             (unsigned int)request_count);
+             "Schedule refresh applied: request_count=%u count=%u",
+             (unsigned int)request_count,
+             (unsigned int)fetched_count);
 }
 
 void schedule_task(void *arg) {
