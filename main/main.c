@@ -7,6 +7,7 @@
 #include "dispense.h"
 #include "motor_task.h"
 #include "event_queue.h"
+#include "ongi_mqtt_client.h"
 #include "intake.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -42,6 +43,13 @@ void app_main(void)
         return;
     }
 
+    // Initialize MQTT client and prepare command topics
+    err = ongi_mqtt_client_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize MQTT client: %s", esp_err_to_name(err));
+        return;
+    }
+
     // Create the heartbeat task
     BaseType_t heartbeat_task_created = xTaskCreate(
         heartbeat_task, 
@@ -54,6 +62,20 @@ void app_main(void)
 
     if (heartbeat_task_created != pdPASS) {
         ESP_LOGE(TAG, "Failed to create heartbeat task");
+        return;
+    }
+
+    // Create the MQTT client task
+    BaseType_t mqtt_task_created = xTaskCreate(
+        ongi_mqtt_client_task,
+        "mqtt_client_task",
+        ONGI_MQTT_TASK_STACK_SIZE,
+        NULL,
+        ONGI_MQTT_TASK_PRIORITY,
+        NULL
+    );
+    if (mqtt_task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create MQTT client task");
         return;
     }
 
