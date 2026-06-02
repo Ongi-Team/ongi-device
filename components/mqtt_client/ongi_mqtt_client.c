@@ -37,6 +37,7 @@ void ongi_mqtt_client_task(void *arg) {
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "motor_task.h"
+#include "schedule_store.h"
 #include "wifi_heartbeat.h"
 
 #include "wifi_config.h"
@@ -49,6 +50,7 @@ static const char *TAG = "ongi-mqtt-client";
 #define MQTT_COMMAND_QOS 1
 #define MQTT_OPEN_ALL_PAYLOAD "OPEN_ALL"
 #define MQTT_CLOSE_ALL_PAYLOAD "CLOSE_ALL"
+#define MQTT_SCHEDULE_UPDATED_PAYLOAD "SCHEDULE_UPDATED"
 #define MQTT_DUPLICATE_SUPPRESS_WINDOW_MS 30000
 
 typedef struct {
@@ -195,6 +197,36 @@ static void log_received_command_metadata(const esp_mqtt_event_handle_t event) {
 
 static void handle_mqtt_command_data(const esp_mqtt_event_handle_t event) {
     log_received_command_metadata(event);
+
+    if (event != NULL &&
+        mqtt_topic_matches(event->topic, event->topic_len, s_command_topics.schedule_updated)) {
+        if (event->data == NULL ||
+            event->current_data_offset != 0 ||
+            event->data_len != event->total_data_len) {
+            ESP_LOGW(TAG,
+                     "MQTT schedule refresh payload fragment ignored: payload_len=%d total_payload_len=%d offset=%d",
+                     event->data_len,
+                     event->total_data_len,
+                     event->current_data_offset);
+            return;
+        }
+
+        if (!mqtt_bytes_match(event->data, event->data_len, MQTT_SCHEDULE_UPDATED_PAYLOAD)) {
+            ESP_LOGW(TAG, "MQTT schedule refresh payload rejected: payload_len=%d", event->data_len);
+            return;
+        }
+
+        esp_err_t refresh_err = schedule_store_request_refresh();
+        if (refresh_err != ESP_OK) {
+            ESP_LOGW(TAG,
+                     "MQTT schedule refresh ignored until schedule store is ready: err=%s",
+                     esp_err_to_name(refresh_err));
+            return;
+        }
+
+        ESP_LOGI(TAG, "MQTT schedule refresh notification accepted");
+        return;
+    }
 
     MotorCommand command;
     esp_err_t err = get_motor_command_from_event(event, &command);
