@@ -1,5 +1,32 @@
 #include "ongi_mqtt_client.h"
 
+#if defined(CI_BUILD) || defined(TEST_BUILD)
+
+#include "esp_err.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+static const char *TAG = "ongi-mqtt-client";
+
+esp_err_t ongi_mqtt_client_init(void) {
+    ESP_LOGI(TAG, "MQTT client setup skipped for CI/TEST build");
+    return ESP_OK;
+}
+
+esp_err_t ongi_mqtt_client_start(void) {
+    ESP_LOGI(TAG, "MQTT client start skipped for CI/TEST build");
+    return ESP_OK;
+}
+
+void ongi_mqtt_client_task(void *arg) {
+    (void)arg;
+    ESP_LOGI(TAG, "MQTT client task skipped for CI/TEST build");
+    vTaskDelete(NULL);
+}
+
+#else
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,13 +38,8 @@
 #include "mqtt_client.h"
 #include "wifi_heartbeat.h"
 
-#ifdef CI_BUILD
-    #include "wifi_config_example.h"
-    #include "mqtt_config_example.h"
-#else
-    #include "wifi_config.h"
-    #include "mqtt_config.h"
-#endif
+#include "wifi_config.h"
+#include "mqtt_config.h"
 
 static const char *TAG = "ongi-mqtt-client";
 
@@ -287,3 +309,5 @@ void ongi_mqtt_client_task(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(MQTT_START_RETRY_DELAY_MS));
     }
 }
+
+#endif

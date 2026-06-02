@@ -7,12 +7,15 @@
 #include "dispense.h"
 #include "motor_task.h"
 #include "event_queue.h"
-#include "ongi_mqtt_client.h"
 #include "intake.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_err.h"
+
+#if !defined(CI_BUILD) && !defined(TEST_BUILD)
+#include "ongi_mqtt_client.h"
+#endif
 
 void app_main(void)
 {
@@ -43,12 +46,14 @@ void app_main(void)
         return;
     }
 
+#if !defined(CI_BUILD) && !defined(TEST_BUILD)
     // Initialize MQTT client and prepare command topics
     err = ongi_mqtt_client_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize MQTT client: %s", esp_err_to_name(err));
         return;
     }
+#endif
 
     // Create the heartbeat task
     BaseType_t heartbeat_task_created = xTaskCreate(
@@ -65,6 +70,7 @@ void app_main(void)
         return;
     }
 
+#if !defined(CI_BUILD) && !defined(TEST_BUILD)
     // Create the MQTT client task
     BaseType_t mqtt_task_created = xTaskCreate(
         ongi_mqtt_client_task,
@@ -78,6 +84,7 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to create MQTT client task");
         return;
     }
+#endif
 
     // Initialize dispense module and check for errors
     err = dispense_init();
