@@ -21,6 +21,8 @@ static bool is_valid_motor_command(MotorCommand command);
 static esp_err_t process_dispense_event(DispenseEvent event, const ServoDriver *servo, const IntakeDetector *detector);
 static esp_err_t process_motor_command(MotorCommand command, const ServoDriver *servo);
 static esp_err_t run_all_slot_command(MotorCommand command, const ServoDriver *servo);
+static bool tick_deadline_expired(TickType_t now, TickType_t deadline);
+static TickType_t get_auto_close_wait_ticks(TickType_t deadline);
 
 esp_err_t motor_init(void) {
     QueueHandle_t dispense_queue = get_dispense_queue();
@@ -132,8 +134,22 @@ void motor_task(void *arg) {
         return;
     }
 
+    bool auto_close_pending = false;
+    TickType_t auto_close_deadline = 0;
+
     while (1) {
-        QueueSetMemberHandle_t ready_queue = xQueueSelectFromSet(s_motor_queue_set, portMAX_DELAY);
+        TickType_t wait_ticks = auto_close_pending ? get_auto_close_wait_ticks(auto_close_deadline) : portMAX_DELAY;
+        QueueSetMemberHandle_t ready_queue = xQueueSelectFromSet(s_motor_queue_set, wait_ticks);
+
+        if (ready_queue == NULL) {
+            if (auto_close_pending && tick_deadline_expired(xTaskGetTickCount(), auto_close_deadline)) {
+                MotorCommand auto_close_command = { .type = MOTOR_COMMAND_CLOSE_ALL };
+                ESP_LOGW(TAG, "OPEN_ALL auto-close timeout reached; closing all slots");
+                (void)process_motor_command(auto_close_command, servo);
+                auto_close_pending = false;
+            }
+            continue;
+        }
 
         if (ready_queue == dispense_queue) {
             DispenseEvent event;
@@ -144,6 +160,15 @@ void motor_task(void *arg) {
             MotorCommand command;
             if (xQueueReceive(s_motor_command_queue, &command, 0) == pdTRUE) {
                 (void)process_motor_command(command, servo);
+                if (command.type == MOTOR_COMMAND_OPEN_ALL) {
+                    auto_close_deadline = xTaskGetTickCount() + pdMS_TO_TICKS(MOTOR_OPEN_ALL_AUTO_CLOSE_TIMEOUT_MS);
+                    auto_close_pending = true;
+                    ESP_LOGI(TAG, "OPEN_ALL auto-close scheduled: timeout_ms=%d",
+                             MOTOR_OPEN_ALL_AUTO_CLOSE_TIMEOUT_MS);
+                } else if (command.type == MOTOR_COMMAND_CLOSE_ALL) {
+                    auto_close_pending = false;
+                    ESP_LOGI(TAG, "OPEN_ALL auto-close cleared by CLOSE_ALL");
+                }
             }
         }
     }
@@ -275,6 +300,19 @@ static esp_err_t run_all_slot_command(MotorCommand command, const ServoDriver *s
     }
 
     return first_close_err;
+}
+
+static bool tick_deadline_expired(TickType_t now, TickType_t deadline) {
+    return (int32_t)(now - deadline) >= 0;
+}
+
+static TickType_t get_auto_close_wait_ticks(TickType_t deadline) {
+    TickType_t now = xTaskGetTickCount();
+    if (tick_deadline_expired(now, deadline)) {
+        return 0;
+    }
+
+    return deadline - now;
 }
 
 static bool is_time_synced(void) {
