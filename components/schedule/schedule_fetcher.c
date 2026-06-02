@@ -18,7 +18,11 @@
 
 static const char *TAG = "schedule_fetcher";
 
-#define SCHEDULE_FETCH_URL BASE_URL "/api/device/schedules"
+#ifndef DEVICE_SCHEDULE_URL
+#define DEVICE_SCHEDULE_URL BASE_URL "/api/device/schedules"
+#endif
+
+#define SCHEDULE_FETCH_URL DEVICE_SCHEDULE_URL
 #define SCHEDULE_FETCH_TIMEOUT_MS 5000
 #define SCHEDULE_RESPONSE_BUFFER_SIZE 1024
 
@@ -145,6 +149,9 @@ static esp_err_t parse_json_int_field(const char *begin, const char *end, const 
     while (cursor < end && *cursor >= '0' && *cursor <= '9') {
         has_digit = true;
         value = (value * 10) + (*cursor - '0');
+        if (value > SCHEDULE_SLOT_COUNT) {
+            return ESP_ERR_INVALID_ARG;
+        }
         cursor++;
     }
 

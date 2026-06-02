@@ -11,4 +11,8 @@
 #define MEDICATION_EVENT_ENDPOINT "/your_medication_event_endpoint_here"
 #define MEDICATION_EVENT_URL BASE_URL MEDICATION_EVENT_ENDPOINT
 
+// Device schedule endpoint
+#define DEVICE_SCHEDULE_ENDPOINT "/api/device/schedules"
+#define DEVICE_SCHEDULE_URL BASE_URL DEVICE_SCHEDULE_ENDPOINT
+
 #endif // HTTP_CONFIG_H
