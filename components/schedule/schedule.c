@@ -53,6 +53,25 @@ static void mark_triggered_today(TriggerRecord *records, size_t count, const Slo
              (unsigned int)slot->minute);
 }
 
+static void consume_schedule_refresh_request(void) {
+    bool refresh_pending = false;
+    uint32_t request_count = 0;
+
+    esp_err_t err = schedule_store_consume_refresh_request(&refresh_pending, &request_count);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to consume schedule refresh request: %s", esp_err_to_name(err));
+        return;
+    }
+
+    if (!refresh_pending) {
+        return;
+    }
+
+    ESP_LOGI(TAG,
+             "Schedule refresh notification consumed: request_count=%u fetch_status=pending_contract",
+             (unsigned int)request_count);
+}
+
 void schedule_task(void *arg) {
     ESP_LOGI(TAG, "Schedule task started");
 
@@ -70,6 +89,8 @@ void schedule_task(void *arg) {
 
     // Main loop to check and trigger scheduled slots
     while (1) {
+        consume_schedule_refresh_request();
+
         time_t now;
         // Get current time from RTC
         esp_err_t err = rtc_driver_get_time(&now);
