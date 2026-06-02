@@ -36,6 +36,7 @@ void ongi_mqtt_client_task(void *arg) {
 #include "esp_log.h"
 #include "freertos/task.h"
 #include "mqtt_client.h"
+#include "motor_task.h"
 #include "wifi_heartbeat.h"
 
 #include "wifi_config.h"
@@ -46,6 +47,9 @@ static const char *TAG = "ongi-mqtt-client";
 #define MQTT_TOPIC_BUFFER_SIZE 160
 #define MQTT_START_RETRY_DELAY_MS 5000
 #define MQTT_COMMAND_QOS 1
+#define MQTT_OPEN_ALL_PAYLOAD "OPEN_ALL"
+#define MQTT_CLOSE_ALL_PAYLOAD "CLOSE_ALL"
+#define MQTT_DUPLICATE_SUPPRESS_WINDOW_MS 30000
 
 typedef struct {
     char open_all[MQTT_TOPIC_BUFFER_SIZE];
@@ -54,7 +58,15 @@ typedef struct {
     bool initialized;
 } OngiMqttTopics;
 
+typedef struct {
+    bool valid;
+    int msg_id;
+    MotorCommandType type;
+    TickType_t received_tick;
+} RecentMqttMotorCommand;
+
 static OngiMqttTopics s_command_topics;
+static RecentMqttMotorCommand s_recent_motor_command;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 static bool s_mqtt_started = false;
 
@@ -66,6 +78,16 @@ static bool mqtt_topic_matches(const char *event_topic, int event_topic_len, con
     size_t expected_len = strlen(expected_topic);
     return (size_t)event_topic_len == expected_len &&
            memcmp(event_topic, expected_topic, expected_len) == 0;
+}
+
+static bool mqtt_bytes_match(const char *data, int data_len, const char *expected) {
+    if (data == NULL || data_len < 0 || expected == NULL) {
+        return false;
+    }
+
+    size_t expected_len = strlen(expected);
+    return (size_t)data_len == expected_len &&
+           memcmp(data, expected, expected_len) == 0;
 }
 
 static const char *get_command_name_from_topic(const char *topic, int topic_len) {
@@ -82,6 +104,73 @@ static const char *get_command_name_from_topic(const char *topic, int topic_len)
     }
 
     return "unknown";
+}
+
+static esp_err_t get_motor_command_from_event(const esp_mqtt_event_handle_t event, MotorCommand *out_command) {
+    if (event == NULL || out_command == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (event->topic == NULL || event->data == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (event->current_data_offset != 0 || event->data_len != event->total_data_len) {
+        ESP_LOGW(TAG,
+                 "MQTT command payload fragment ignored: topic_len=%d payload_len=%d total_payload_len=%d offset=%d",
+                 event->topic_len,
+                 event->data_len,
+                 event->total_data_len,
+                 event->current_data_offset);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    if (mqtt_topic_matches(event->topic, event->topic_len, s_command_topics.open_all)) {
+        if (!mqtt_bytes_match(event->data, event->data_len, MQTT_OPEN_ALL_PAYLOAD)) {
+            ESP_LOGW(TAG, "MQTT open-all command payload rejected: payload_len=%d", event->data_len);
+            return ESP_ERR_INVALID_ARG;
+        }
+
+        out_command->type = MOTOR_COMMAND_OPEN_ALL;
+        return ESP_OK;
+    }
+
+    if (mqtt_topic_matches(event->topic, event->topic_len, s_command_topics.close_all)) {
+        if (!mqtt_bytes_match(event->data, event->data_len, MQTT_CLOSE_ALL_PAYLOAD)) {
+            ESP_LOGW(TAG, "MQTT close-all command payload rejected: payload_len=%d", event->data_len);
+            return ESP_ERR_INVALID_ARG;
+        }
+
+        out_command->type = MOTOR_COMMAND_CLOSE_ALL;
+        return ESP_OK;
+    }
+
+    return ESP_ERR_NOT_FOUND;
+}
+
+static bool is_recent_duplicate_motor_command(const esp_mqtt_event_handle_t event, MotorCommand command) {
+    if (event == NULL || !event->dup || !s_recent_motor_command.valid) {
+        return false;
+    }
+
+    if (s_recent_motor_command.msg_id != event->msg_id ||
+        s_recent_motor_command.type != command.type) {
+        return false;
+    }
+
+    TickType_t elapsed_ticks = xTaskGetTickCount() - s_recent_motor_command.received_tick;
+    return elapsed_ticks <= pdMS_TO_TICKS(MQTT_DUPLICATE_SUPPRESS_WINDOW_MS);
+}
+
+static void remember_motor_command(const esp_mqtt_event_handle_t event, MotorCommand command) {
+    if (event == NULL) {
+        return;
+    }
+
+    s_recent_motor_command.valid = true;
+    s_recent_motor_command.msg_id = event->msg_id;
+    s_recent_motor_command.type = command.type;
+    s_recent_motor_command.received_tick = xTaskGetTickCount();
 }
 
 static void log_received_command_metadata(const esp_mqtt_event_handle_t event) {
@@ -102,6 +191,36 @@ static void log_received_command_metadata(const esp_mqtt_event_handle_t event) {
              event->qos,
              event->retain,
              event->dup);
+}
+
+static void handle_mqtt_command_data(const esp_mqtt_event_handle_t event) {
+    log_received_command_metadata(event);
+
+    MotorCommand command;
+    esp_err_t err = get_motor_command_from_event(event, &command);
+    if (err == ESP_ERR_NOT_FOUND) {
+        return;
+    }
+
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "MQTT command ignored: err=%s", esp_err_to_name(err));
+        return;
+    }
+
+    if (is_recent_duplicate_motor_command(event, command)) {
+        ESP_LOGW(TAG, "MQTT duplicate motor command ignored: command=%s msg_id=%d",
+                 get_command_name_from_topic(event->topic, event->topic_len),
+                 event->msg_id);
+        return;
+    }
+
+    err = motor_command_enqueue(command);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "MQTT motor command enqueue failed: err=%s", esp_err_to_name(err));
+        return;
+    }
+
+    remember_motor_command(event, command);
 }
 
 static esp_err_t subscribe_command_topic(esp_mqtt_client_handle_t client, const char *topic, const char *command) {
@@ -158,7 +277,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             break;
         }
         case MQTT_EVENT_DATA:
-            log_received_command_metadata((esp_mqtt_event_handle_t)event_data);
+            handle_mqtt_command_data((esp_mqtt_event_handle_t)event_data);
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGW(TAG, "MQTT broker disconnected");
