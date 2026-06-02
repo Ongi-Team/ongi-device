@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "cJSON.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
@@ -99,69 +98,200 @@ static esp_err_t parse_scheduled_time(const char *scheduled_time, uint8_t *hour,
     return ESP_OK;
 }
 
+static const char *find_token_in_range(const char *begin, const char *end, const char *token)
+{
+    if (begin == NULL || end == NULL || token == NULL || begin > end) {
+        return NULL;
+    }
+
+    size_t token_len = strlen(token);
+    for (const char *cursor = begin; cursor + token_len <= end; cursor++) {
+        if (memcmp(cursor, token, token_len) == 0) {
+            return cursor;
+        }
+    }
+
+    return NULL;
+}
+
+static const char *skip_json_space(const char *cursor, const char *end)
+{
+    while (cursor < end && (*cursor == ' ' || *cursor == '\n' || *cursor == '\r' || *cursor == '\t')) {
+        cursor++;
+    }
+
+    return cursor;
+}
+
+static esp_err_t parse_json_int_field(const char *begin, const char *end, const char *key, int *out_value)
+{
+    if (begin == NULL || end == NULL || key == NULL || out_value == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const char *key_pos = find_token_in_range(begin, end, key);
+    if (key_pos == NULL) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    const char *colon = find_token_in_range(key_pos + strlen(key), end, ":");
+    if (colon == NULL) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    const char *cursor = skip_json_space(colon + 1, end);
+    int value = 0;
+    bool has_digit = false;
+    while (cursor < end && *cursor >= '0' && *cursor <= '9') {
+        has_digit = true;
+        value = (value * 10) + (*cursor - '0');
+        cursor++;
+    }
+
+    if (!has_digit) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    *out_value = value;
+    return ESP_OK;
+}
+
+static esp_err_t parse_json_string_field(
+    const char *begin,
+    const char *end,
+    const char *key,
+    char *out_value,
+    size_t out_value_size)
+{
+    if (begin == NULL || end == NULL || key == NULL || out_value == NULL || out_value_size == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const char *key_pos = find_token_in_range(begin, end, key);
+    if (key_pos == NULL) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    const char *colon = find_token_in_range(key_pos + strlen(key), end, ":");
+    if (colon == NULL) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    const char *cursor = skip_json_space(colon + 1, end);
+    if (cursor >= end || *cursor != '"') {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    cursor++;
+
+    const char *value_begin = cursor;
+    while (cursor < end && *cursor != '"') {
+        cursor++;
+    }
+    if (cursor >= end) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    size_t value_len = (size_t)(cursor - value_begin);
+    if (value_len >= out_value_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    memcpy(out_value, value_begin, value_len);
+    out_value[value_len] = '\0';
+    return ESP_OK;
+}
+
 static esp_err_t parse_schedule_response(const char *json, SlotEntry *slots, size_t max_count, size_t *out_count)
 {
     if (json == NULL || slots == NULL || out_count == NULL || max_count == 0) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    cJSON *root = cJSON_Parse(json);
-    if (root == NULL) {
-        ESP_LOGE(TAG, "Failed to parse schedule response JSON");
+    const char *json_end = json + strlen(json);
+    const char *data_key = find_token_in_range(json, json_end, "\"data\"");
+    if (data_key == NULL) {
+        ESP_LOGE(TAG, "Schedule response missing data array");
         return ESP_ERR_INVALID_RESPONSE;
     }
 
-    cJSON *data = cJSON_GetObjectItemCaseSensitive(root, "data");
-    if (!cJSON_IsArray(data)) {
-        ESP_LOGE(TAG, "Schedule response missing data array");
-        cJSON_Delete(root);
+    const char *array_cursor = find_token_in_range(data_key, json_end, "[");
+    if (array_cursor == NULL) {
+        ESP_LOGE(TAG, "Schedule response data is not an array");
         return ESP_ERR_INVALID_RESPONSE;
     }
+    array_cursor++;
 
     size_t count = 0;
-    cJSON *item = NULL;
-    cJSON_ArrayForEach(item, data) {
-        if (count >= max_count) {
-            ESP_LOGE(TAG, "Schedule response has too many slots");
-            cJSON_Delete(root);
-            return ESP_ERR_INVALID_SIZE;
+    while (true) {
+        array_cursor = skip_json_space(array_cursor, json_end);
+        if (array_cursor >= json_end) {
+            return ESP_ERR_INVALID_RESPONSE;
         }
-
-        cJSON *slot_number = cJSON_GetObjectItemCaseSensitive(item, "slotNumber");
-        cJSON *scheduled_time = cJSON_GetObjectItemCaseSensitive(item, "scheduledTime");
-        if (!cJSON_IsNumber(slot_number) || !cJSON_IsString(scheduled_time)) {
-            ESP_LOGE(TAG, "Schedule response item has invalid fields");
-            cJSON_Delete(root);
+        if (*array_cursor == ']') {
+            break;
+        }
+        if (*array_cursor == ',') {
+            array_cursor++;
+            continue;
+        }
+        if (*array_cursor != '{') {
+            ESP_LOGE(TAG, "Schedule response item is not an object");
             return ESP_ERR_INVALID_RESPONSE;
         }
 
-        if (slot_number->valueint <= 0 || slot_number->valueint > SCHEDULE_SLOT_COUNT) {
-            ESP_LOGE(TAG, "Schedule response slot is out of range: slot=%d", slot_number->valueint);
-            cJSON_Delete(root);
+        const char *item_begin = array_cursor;
+        const char *item_end = find_token_in_range(item_begin, json_end, "}");
+        if (item_end == NULL) {
+            return ESP_ERR_INVALID_RESPONSE;
+        }
+
+        if (count >= max_count) {
+            ESP_LOGE(TAG, "Schedule response has too many slots");
+            return ESP_ERR_INVALID_SIZE;
+        }
+
+        int slot_number = 0;
+        char scheduled_time[9] = { 0 };
+        esp_err_t err = parse_json_int_field(item_begin, item_end, "\"slotNumber\"", &slot_number);
+        if (err == ESP_OK) {
+            err = parse_json_string_field(
+                item_begin,
+                item_end,
+                "\"scheduledTime\"",
+                scheduled_time,
+                sizeof(scheduled_time)
+            );
+        }
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Schedule response item has invalid fields");
+            return ESP_ERR_INVALID_RESPONSE;
+        }
+
+        if (slot_number <= 0 || slot_number > SCHEDULE_SLOT_COUNT) {
+            ESP_LOGE(TAG, "Schedule response slot is out of range: slot=%d", slot_number);
             return ESP_ERR_INVALID_ARG;
         }
 
         uint8_t hour = 0;
         uint8_t minute = 0;
-        esp_err_t err = parse_scheduled_time(scheduled_time->valuestring, &hour, &minute);
+        err = parse_scheduled_time(scheduled_time, &hour, &minute);
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Schedule response time is invalid: slot=%d", slot_number->valueint);
-            cJSON_Delete(root);
+            ESP_LOGE(TAG, "Schedule response time is invalid: slot=%d", slot_number);
             return err;
         }
 
         // Convert the server schedule item into the local slot entry contract.
         slots[count] = (SlotEntry) {
-            .slot_id = (uint8_t)slot_number->valueint,
+            .slot_id = (uint8_t)slot_number,
             .hour = hour,
             .minute = minute,
             .triggered = false,
         };
         count++;
+        array_cursor = item_end + 1;
     }
 
     *out_count = count;
-    cJSON_Delete(root);
     return ESP_OK;
 }
 
