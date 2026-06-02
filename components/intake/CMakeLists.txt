@@ -10,3 +10,6 @@ if(CI_BUILD)
         -Wno-unused-parameter
     )
 endif()
+if(TEST_BUILD)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE TEST_BUILD)
+endif()

@@ -71,8 +71,8 @@ void app_main(void)
         return;
     }
 
-#ifdef CI_BUILD
-    // Temporary fixture schedule for CI/store integration testing only.
+#if defined(CI_BUILD) || defined(TEST_BUILD)
+    // Temporary fixture schedule for CI/store integration and local test builds.
     err = schedule_store_apply_fixture();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to apply fixture schedule");

@@ -1,9 +1,9 @@
 #include "servo_driver_factory.h"
 
-#ifdef CI_BUILD
+#if defined(CI_BUILD) || defined(TEST_BUILD)
 #include "dummy_servo_driver.h"
 
-// Get the default servo driver instance, which is a dummy driver in CI build
+// Get the default servo driver instance, which is a dummy driver in CI/test builds.
 const ServoDriver *get_default_servo_driver(void) {
     return &DUMMY_SERVO_DRIVER;
 }
