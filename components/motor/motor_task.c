@@ -227,6 +227,8 @@ static esp_err_t process_motor_command(MotorCommand command, const ServoDriver *
 }
 
 static esp_err_t run_all_slot_command(MotorCommand command, const ServoDriver *servo) {
+    esp_err_t first_close_err = ESP_OK;
+
     for (uint8_t slot_id = 1; slot_id <= SLOT_COUNT; slot_id++) {
         const SlotHwConfig *slot_config = NULL;
         esp_err_t err = slot_map_get(slot_id, &slot_config);
@@ -246,11 +248,17 @@ static esp_err_t run_all_slot_command(MotorCommand command, const ServoDriver *s
                      motor_command_type_name(command.type),
                      slot_id,
                      esp_err_to_name(err));
+            if (command.type == MOTOR_COMMAND_CLOSE_ALL) {
+                if (first_close_err == ESP_OK) {
+                    first_close_err = err;
+                }
+                continue;
+            }
             return err;
         }
     }
 
-    return ESP_OK;
+    return first_close_err;
 }
 
 static bool is_time_synced(void) {
