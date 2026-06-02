@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS "wifi_heartbeat.c"
-    INCLUDE_DIRS "include"
+    INCLUDE_DIRS "include" "."
     REQUIRES storage
         rtc
         esp_wifi
