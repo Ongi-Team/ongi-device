@@ -8,7 +8,7 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 
-#if defined(CI_BUILD) || defined(TEST_BUILD)
+#if defined(CI_BUILD) || defined(DUMMY_TEST)
 #include "http_config_example.h"
 #include "wifi_config_example.h"
 #else
@@ -19,7 +19,7 @@
 static const char *TAG = "schedule_fetcher";
 
 #ifndef DEVICE_SCHEDULE_URL
-#define DEVICE_SCHEDULE_URL BASE_URL "/api/device/schedules"
+#define DEVICE_SCHEDULE_URL BASE_URL "/device/schedules"
 #endif
 
 #define SCHEDULE_FETCH_URL DEVICE_SCHEDULE_URL

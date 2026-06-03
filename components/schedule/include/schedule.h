@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define SCHEDULE_SLOT_COUNT 6
-#define SCHEDULE_TASK_STACK_SIZE 4096
+#define SCHEDULE_TASK_STACK_SIZE 8192
 #define SCHEDULE_TASK_PRIORITY 5
 
 typedef struct {

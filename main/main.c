@@ -75,14 +75,16 @@ void app_main(void)
         return;
     }
 
-#if defined(CI_BUILD) || defined(TEST_BUILD)
-    // Temporary fixture schedule for CI/store integration and local test builds.
+#if defined(CI_BUILD) || (defined(TEST_BUILD) && defined(DUMMY_TEST))
+    // Temporary fixture schedule for CI/store integration and dummy test builds.
     err = schedule_store_apply_fixture();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to apply fixture schedule");
         return;
     }
-#else
+#endif
+
+#if !defined(CI_BUILD) && !(defined(TEST_BUILD) && defined(DUMMY_TEST))
     // Request the first server schedule fetch after RTC sync gates the schedule task.
     err = schedule_store_request_refresh();
     if (err != ESP_OK) {
