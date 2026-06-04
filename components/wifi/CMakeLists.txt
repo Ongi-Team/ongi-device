@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS "wifi_heartbeat.c"
-    INCLUDE_DIRS "include"
+    INCLUDE_DIRS "include" "."
     REQUIRES storage
         rtc
         esp_wifi
@@ -17,4 +17,7 @@ if(CI_BUILD)
         -Wno-unused-variable
         -Wno-unused-parameter
     )
+endif()
+if(TEST_BUILD)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE TEST_BUILD)
 endif()

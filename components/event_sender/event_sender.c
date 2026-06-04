@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef CI_BUILD
+#if defined(CI_BUILD)
     #include "http_config_example.h"
     #include "wifi_config_example.h"
 #else
